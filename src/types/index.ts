@@ -57,6 +57,8 @@ export interface Player {
   resources: Resources;
   inventory: Record<string, number>;
   crew: CrewMember[];
+  baseLocation?: string | null;
+  baseLevel?: number;
   // Equipment slots, etc.
 }
 

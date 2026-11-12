@@ -11,6 +11,8 @@ interface GameContextType {
     addPlayer: (player: Player) => void;
     updateTile: (tile: Tile) => void;
     login: (username: string) => void;
+    logout: () => void;
+    resetWorld: () => void;
     buildBase: (tileId: string) => void;
     buildStructure: (tileId: string, structure: 'relay' | 'service') => void;
     dismantleStructure: (tileId: string) => void;
@@ -39,34 +41,142 @@ const defaultState: GameState = {
     marketListings: [],
 };
 
+const getInitialState = (): GameState => {
+    const savedUser = typeof window !== 'undefined' ? localStorage.getItem('deepmine_user') : null;
+    return {
+        ...defaultState,
+        currentUser: savedUser || null,
+    };
+};
+
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [gameState, setGameState] = useState<GameState>(defaultState);
+    const [gameState, setGameState] = useState<GameState>(getInitialState);
     const [currentView, setCurrentView] = useState<'map' | 'crew' | 'research' | 'base' | 'market'>('map');
+
+    const login = (username: string) => {
+        localStorage.setItem('deepmine_user', username);
+        setGameState((prev) => {
+            const existingPlayer = prev.players[username];
+            const baseLocation = existingPlayer?.baseLocation || prev.baseLocation || null;
+            const baseLevel = existingPlayer?.baseLevel ?? prev.baseLevel ?? 0;
+
+            let updatedPlayers = prev.players;
+            if (!existingPlayer) {
+                updatedPlayers = {
+                    ...prev.players,
+                    [username]: {
+                        id: username,
+                        name: username,
+                        baseLocation,
+                        baseLevel,
+                        resources: { water: 0, food: 0, energy: 0, fuel: 0, credits: 500 },
+                        inventory: { soil: 0, rock: 0, mineral: 0, bananium: 0 },
+                        crew: [
+                            {
+                                id: `c-${Date.now()}-1`,
+                                name: 'Chief Drill',
+                                type: 'miner',
+                                state: 'idle',
+                                currentTileId: null,
+                                stats: { digSpeed: 1.5, prospectiveSpeed: 1.0 },
+                            },
+                            {
+                                id: `c-${Date.now()}-2`,
+                                name: 'Scout Bob',
+                                type: 'scientist',
+                                state: 'idle',
+                                currentTileId: null,
+                                stats: { digSpeed: 1.0, prospectiveSpeed: 1.5 },
+                            },
+                        ],
+                    }
+                };
+            }
+
+            return {
+                ...prev,
+                currentUser: username,
+                baseLocation,
+                baseLevel,
+                players: updatedPlayers,
+            };
+        });
+        socketClient.send({ type: 'LOGIN', username });
+    };
+
+    const logout = () => {
+        localStorage.removeItem('deepmine_user');
+        setGameState(prev => ({
+            ...prev,
+            currentUser: null,
+            baseLocation: null,
+            baseLevel: 0,
+        }));
+    };
+
+    const resetWorld = () => {
+        localStorage.removeItem('deepmine_user');
+        setGameState(defaultState);
+        socketClient.send({ type: 'RESET_WORLD' });
+    };
+
+    // Auto-restore login on mount
+    useEffect(() => {
+        const savedUser = localStorage.getItem('deepmine_user');
+        if (savedUser) {
+            socketClient.send({ type: 'LOGIN', username: savedUser });
+        }
+    }, []);
 
     // Multiplayer Server State Synchronization
     useEffect(() => {
         const unsubscribe = socketClient.subscribe((msg: ServerMessage) => {
             if (msg.type === 'INIT_STATE') {
                 const s = msg.state as Partial<GameState>;
+                setGameState(prev => {
+                    const activeUser = prev.currentUser || localStorage.getItem('deepmine_user');
+                    const player = activeUser && s?.players ? s.players[activeUser] : null;
+                    return {
+                        ...prev,
+                        tiles: s?.tiles || prev.tiles,
+                        players: s?.players || prev.players,
+                        marketListings: s?.marketListings || prev.marketListings,
+                        transportQueue: s?.transportQueue || prev.transportQueue,
+                        baseLocation: player?.baseLocation !== undefined ? player.baseLocation : prev.baseLocation,
+                        baseLevel: player?.baseLevel !== undefined ? player.baseLevel : prev.baseLevel,
+                    };
+                });
+            } else if (msg.type === 'LOGIN_SUCCESS') {
+                const username = msg.username as string | undefined;
+                const baseLocation = msg.baseLocation as string | null | undefined;
+                const baseLevel = msg.baseLevel as number | undefined;
+                const player = msg.player as Player | undefined;
                 setGameState(prev => ({
                     ...prev,
-                    tiles: s?.tiles || prev.tiles,
-                    players: s?.players || prev.players,
-                    marketListings: s?.marketListings || prev.marketListings,
-                    transportQueue: s?.transportQueue || prev.transportQueue,
+                    currentUser: username || prev.currentUser,
+                    baseLocation: baseLocation !== undefined ? baseLocation : prev.baseLocation,
+                    baseLevel: baseLevel !== undefined ? baseLevel : prev.baseLevel,
+                    players: player ? { ...prev.players, [player.id]: player } : prev.players,
                 }));
             } else if (msg.type === 'STATE_UPDATE' || msg.type === 'TICK_UPDATE') {
                 const tiles = msg.tiles as Record<string, Tile> | undefined;
                 const players = msg.players as Record<string, Player> | undefined;
                 const transportQueue = msg.transportQueue as TransportTask[] | undefined;
-                setGameState(prev => ({
-                    ...prev,
-                    tiles: tiles || prev.tiles,
-                    players: { ...prev.players, ...players },
-                    transportQueue: transportQueue !== undefined ? transportQueue : prev.transportQueue,
-                }));
+                setGameState(prev => {
+                    const nextPlayers = players ? { ...prev.players, ...players } : prev.players;
+                    const user = prev.currentUser;
+                    const currentPlayer = user ? nextPlayers[user] : null;
+                    return {
+                        ...prev,
+                        tiles: tiles || prev.tiles,
+                        players: nextPlayers,
+                        transportQueue: transportQueue !== undefined ? transportQueue : prev.transportQueue,
+                        baseLocation: currentPlayer?.baseLocation !== undefined ? currentPlayer.baseLocation : prev.baseLocation,
+                        baseLevel: currentPlayer?.baseLevel !== undefined ? currentPlayer.baseLevel : prev.baseLevel,
+                    };
+                });
             } else if (msg.type === 'TILE_UPDATED') {
                 const tile = msg.tile as Tile | undefined;
                 if (tile) {
@@ -86,10 +196,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else if (msg.type === 'PLAYER_JOINED') {
                 const player = msg.player as Player | undefined;
                 if (player) {
-                    setGameState(prev => ({
-                        ...prev,
-                        players: { ...prev.players, [player.id]: player }
-                    }));
+                    setGameState(prev => {
+                        const isSelf = prev.currentUser === player.id;
+                        return {
+                            ...prev,
+                            players: { ...prev.players, [player.id]: player },
+                            baseLocation: isSelf && player.baseLocation ? player.baseLocation : prev.baseLocation,
+                            baseLevel: isSelf && player.baseLevel ? player.baseLevel : prev.baseLevel,
+                        };
+                    });
                 }
             }
         });
@@ -120,14 +235,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 tiles: newTiles,
             };
         });
-    };
-
-    const login = (username: string) => {
-        setGameState((prev) => ({
-            ...prev,
-            currentUser: username,
-        }));
-        socketClient.send({ type: 'LOGIN', username });
     };
 
     const getResearchBonus = (type: string): number => {
@@ -539,7 +646,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const activeTile = Object.values(prev.tiles).find(t =>
                     t.claimedBy === currentUser &&
                     t.id !== prev.baseLocation &&
-                    t.id !== tileId // Ignore self if we are upgrading prospect->mine
+                    t.id !== tileId &&
+                    !t.isMined &&
+                    !t.structure &&
+                    Boolean(t.job)
                 );
 
                 if (activeTile) {
@@ -815,7 +925,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <GameContext.Provider value={{ gameState, addPlayer, updateTile, login, buildBase, buildStructure, dismantleStructure, unlockTech, getResearchBonus, setTileJob, hireCrew, smeltResource, createListing, buyListing, cancelListing, currentView, setCurrentView }}>
+        <GameContext.Provider value={{ gameState, addPlayer, updateTile, login, logout, resetWorld, buildBase, buildStructure, dismantleStructure, unlockTech, getResearchBonus, setTileJob, hireCrew, smeltResource, createListing, buyListing, cancelListing, currentView, setCurrentView }}>
             {children}
         </GameContext.Provider>
     );

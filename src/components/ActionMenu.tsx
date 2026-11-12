@@ -17,15 +17,17 @@ interface ActionMenuProps {
 export const ActionMenu: React.FC<ActionMenuProps> = ({ tile, onClose, onSetJob, onBuildBase, onManageBase, canBuildBase, isBase }) => {
     const { gameState, buildStructure, dismantleStructure } = useGame();
 
-    // Check if player has another active tile
+    // Check if player has another active job (only 1 active survey or excavation at a time)
     const currentUser = gameState.currentUser;
     const isLimitReached = React.useMemo(() => {
         if (!currentUser || !tile) return false;
         return Object.values(gameState.tiles).some(t =>
             t.claimedBy === currentUser &&
             t.id !== gameState.baseLocation &&
-            t.id !== tile.id && // Don't count self
-            (t.isClaimed) // Any claimed tile counts as active
+            t.id !== tile.id &&
+            !t.isMined &&
+            !t.structure &&
+            Boolean(t.job)
         );
     }, [gameState.tiles, currentUser, gameState.baseLocation, tile]);
 

@@ -3,44 +3,18 @@ import { useGame } from '../context/GameContext';
 import styles from './HomePage.module.css';
 
 export const HomePage: React.FC = () => {
-    const { addPlayer, login } = useGame();
+    const { login } = useGame();
     const [isRegistering, setIsRegistering] = useState(false);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState(''); // Placeholder for now
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!username) return;
+        const trimmed = username.trim();
+        if (!trimmed) return;
 
-        // Simulate login/register by adding a player and setting current user
-        // In a real app, this would talk to Supabase
-        const newPlayer = {
-            id: username.toLowerCase().replace(/\s/g, '_'),
-            name: username,
-            resources: { water: 0, food: 0, energy: 0, fuel: 0, credits: 500 },
-            inventory: { soil: 0, rock: 0, mineral: 100, bananium: 0 },
-            crew: [
-                {
-                    id: `c-${Date.now()}-1`,
-                    name: 'Chief Drill',
-                    type: 'miner' as const,
-                    state: 'idle' as const,
-                    currentTileId: null,
-                    stats: { digSpeed: 1.5, prospectiveSpeed: 1.0 },
-                },
-                {
-                    id: `c-${Date.now()}-2`,
-                    name: 'Scout Bob',
-                    type: 'scientist' as const,
-                    state: 'idle' as const,
-                    currentTileId: null,
-                    stats: { digSpeed: 1.0, prospectiveSpeed: 1.5 },
-                },
-            ],
-        };
-
-        addPlayer(newPlayer);
-        login(newPlayer.id);
+        const userId = trimmed.toLowerCase().replace(/\s/g, '_');
+        login(userId);
     };
 
     return (

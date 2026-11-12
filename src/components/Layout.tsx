@@ -13,7 +13,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-    const { gameState, currentView, setCurrentView } = useGame();
+    const { gameState, currentView, setCurrentView, resetWorld, logout } = useGame();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     return (
@@ -113,6 +113,35 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                             </>
                         )}
                     </nav>
+
+                    <div className="mt-auto p-4 border-t border-slate-700/60 flex flex-col gap-2">
+                        <div className="text-xs text-slate-400">
+                            Captain: <span className="font-semibold text-slate-200">{gameState.currentUser || 'Guest'}</span>
+                        </div>
+                        {gameState.baseLocation && (
+                            <div className="text-xs text-green-400">
+                                Base: <span className="font-mono text-slate-300">{gameState.baseLocation} (Lv {gameState.baseLevel || 1})</span>
+                            </div>
+                        )}
+                        <div className="flex gap-2 mt-2">
+                            <button
+                                onClick={logout}
+                                className="flex-1 py-1 px-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 rounded text-xs transition-colors"
+                            >
+                                Switch Captain
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('Wipe the board and restart fresh? This clears all bases and claims for all players.')) {
+                                        resetWorld();
+                                    }
+                                }}
+                                className="flex-1 py-1 px-2 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/60 rounded text-xs transition-colors"
+                            >
+                                Reset World
+                            </button>
+                        </div>
+                    </div>
                 </aside>
 
                 {/* Game View Content Switching */}

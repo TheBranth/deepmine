@@ -144,6 +144,25 @@ const gameState = {
 // ---------------------------------------------------------
 const server = http.createServer((req, res) => {
   let reqPath = decodeURI(req.url.split('?')[0]);
+  if (reqPath === '/api/reset') {
+    gameState.tiles = generateMap(10, 20);
+    gameState.players = {};
+    gameState.marketListings = [];
+    gameState.transportQueue = [];
+    broadcast({
+      type: 'INIT_STATE',
+      state: {
+        tiles: gameState.tiles,
+        players: gameState.players,
+        marketListings: gameState.marketListings,
+        transportQueue: gameState.transportQueue,
+      }
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', message: 'World reset successfully' }));
+    return;
+  }
+
   if (reqPath === '/' || reqPath === '') {
     reqPath = '/index.html';
   }
@@ -243,7 +262,32 @@ wss.on('connection', (ws) => {
               ],
             };
           }
-          broadcast({ type: 'PLAYER_JOINED', player: gameState.players[currentUser] });
+          const player = gameState.players[currentUser];
+          ws.send(JSON.stringify({
+            type: 'LOGIN_SUCCESS',
+            username: currentUser,
+            baseLocation: player.baseLocation,
+            baseLevel: player.baseLevel,
+            player,
+          }));
+          broadcast({ type: 'PLAYER_JOINED', player });
+          break;
+        }
+
+        case 'RESET_WORLD': {
+          gameState.tiles = generateMap(10, 20);
+          gameState.players = {};
+          gameState.marketListings = [];
+          gameState.transportQueue = [];
+          broadcast({
+            type: 'INIT_STATE',
+            state: {
+              tiles: gameState.tiles,
+              players: gameState.players,
+              marketListings: gameState.marketListings,
+              transportQueue: gameState.transportQueue,
+            }
+          });
           break;
         }
 
@@ -256,6 +300,14 @@ wss.on('connection', (ws) => {
             gameState.tiles[tileId].isClaimed = true;
             gameState.tiles[tileId].claimedBy = username;
             gameState.tiles = updateVisibility(gameState.tiles, getBaseLocations());
+
+            ws.send(JSON.stringify({
+              type: 'LOGIN_SUCCESS',
+              username,
+              baseLocation: tileId,
+              baseLevel: 1,
+              player,
+            }));
 
             broadcast({
               type: 'STATE_UPDATE',
@@ -369,6 +421,8 @@ setInterval(() => {
         if (tile.prospectProgress >= 100) {
           tile.isProspected = true;
           tile.job = null;
+          tile.isClaimed = false;
+          tile.claimedBy = undefined;
           tile.assignedCrewIds = [];
           if (player.crew) {
             player.crew.forEach(c => {
