@@ -10,9 +10,10 @@ import { ResourceIcon } from './ResourceIcon';
 
 interface LayoutProps {
     children: React.ReactNode;
+    onNavigate?: (path: string) => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onNavigate }) => {
     const { gameState, currentView, setCurrentView, resetWorld, logout } = useGame();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -141,6 +142,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                                 Reset World
                             </button>
                         </div>
+                        <button
+                            onClick={() => {
+                                if (onNavigate) {
+                                    onNavigate('/adminDashboard');
+                                } else {
+                                    window.location.href = '/adminDashboard';
+                                }
+                            }}
+                            className="w-full mt-1 py-1 px-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-xs transition-colors flex items-center justify-center gap-1 font-mono"
+                        >
+                            🔒 Admin Dashboard
+                        </button>
                     </div>
                 </aside>
 

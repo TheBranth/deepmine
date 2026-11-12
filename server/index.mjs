@@ -392,6 +392,66 @@ wss.on('connection', (ws) => {
           broadcast({ type: 'MARKET_UPDATED', listings: gameState.marketListings });
           break;
         }
+
+        case 'ADMIN_GIVE_RESOURCES': {
+          const { username, credits, mineral, bananium } = msg;
+          let player = gameState.players[username];
+          if (!player) {
+            player = {
+              id: username,
+              username,
+              baseLocation: null,
+              baseLevel: 0,
+              resources: { credits: 500, mineral: 0, bananium: 0 },
+              inventory: {},
+              crew: [],
+            };
+            gameState.players[username] = player;
+          }
+          if (credits) player.resources.credits = Math.max(0, (player.resources.credits || 0) + Number(credits));
+          if (mineral) player.inventory.mineral = Math.max(0, (player.inventory.mineral || 0) + Number(mineral));
+          if (bananium) player.inventory.bananium = Math.max(0, (player.inventory.bananium || 0) + Number(bananium));
+          broadcast({
+            type: 'STATE_UPDATE',
+            tiles: gameState.tiles,
+            players: gameState.players,
+          });
+          break;
+        }
+
+        case 'ADMIN_REVEAL_ALL': {
+          Object.values(gameState.tiles).forEach(t => {
+            t.isVisible = true;
+            t.isProspected = true;
+          });
+          broadcast({
+            type: 'STATE_UPDATE',
+            tiles: gameState.tiles,
+            players: gameState.players,
+          });
+          break;
+        }
+
+        case 'ADMIN_CLEAR_PLAYER_BASE': {
+          const { username } = msg;
+          const player = gameState.players[username];
+          if (player && player.baseLocation) {
+            const oldTile = gameState.tiles[player.baseLocation];
+            if (oldTile) {
+              oldTile.isClaimed = false;
+              oldTile.claimedBy = undefined;
+            }
+            player.baseLocation = null;
+            player.baseLevel = 0;
+            gameState.tiles = updateVisibility(gameState.tiles, getBaseLocations());
+            broadcast({
+              type: 'STATE_UPDATE',
+              tiles: gameState.tiles,
+              players: gameState.players,
+            });
+          }
+          break;
+        }
       }
     } catch (err) {
       console.error('[WS Error]', err);

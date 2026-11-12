@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import styles from './HomePage.module.css';
 
-export const HomePage: React.FC = () => {
+interface HomePageProps {
+    onNavigate?: (path: string) => void;
+}
+
+export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
     const { login } = useGame();
     const [isRegistering, setIsRegistering] = useState(false);
     const [username, setUsername] = useState('');
@@ -13,7 +17,11 @@ export const HomePage: React.FC = () => {
         const trimmed = username.trim();
         if (!trimmed) return;
 
-        const userId = trimmed.toLowerCase().replace(/\s/g, '_');
+        if (trimmed === 'adminVinnie' && password === 'b1d0n€') {
+            sessionStorage.setItem('deepmine_admin_session', 'active');
+        }
+
+        const userId = trimmed === 'adminVinnie' ? 'adminVinnie' : trimmed.toLowerCase().replace(/\s/g, '_');
         login(userId);
     };
 
@@ -67,6 +75,22 @@ export const HomePage: React.FC = () => {
                         {isRegistering ? 'Login' : 'Register'}
                     </button>
                 </p>
+
+                <div className="mt-4 pt-3 border-t border-slate-800/80 flex justify-center">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (onNavigate) {
+                                onNavigate('/adminDashboard');
+                            } else {
+                                window.location.href = '/adminDashboard';
+                            }
+                        }}
+                        className="text-xs text-amber-400/70 hover:text-amber-300 font-mono transition-colors"
+                    >
+                        🔒 Admin Terminal (/adminDashboard)
+                    </button>
+                </div>
             </div>
         </div>
     );
