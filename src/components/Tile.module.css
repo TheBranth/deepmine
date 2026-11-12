@@ -1,0 +1,143 @@
+.tile {
+    width: 6rem;
+    /* 24 */
+    height: 6rem;
+    border: 1px solid;
+    border-radius: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+    color: white;
+}
+
+.tile:hover {
+    filter: brightness(1.1);
+}
+
+.tileHidden {
+    width: 6rem;
+    height: 6rem;
+    background-color: #000;
+    border: 1px solid #111;
+    opacity: 0.8;
+}
+
+.bgMined {
+    background-color: #111827;
+    /* gray-900 */
+    border-color: #1f2937;
+}
+
+.bgUnknown {
+    background-color: #262626;
+    /* neutral-800 */
+    border-color: #404040;
+    border-style: dashed;
+}
+
+.bgBananium {
+    background-color: rgba(88, 28, 135, 0.3);
+    /* purple-900/30 */
+    border-color: #6b21a8;
+}
+
+.bgMineral {
+    background-color: rgba(30, 58, 138, 0.3);
+    /* blue-900/30 */
+    border-color: #1e40af;
+}
+
+.bgRock {
+    background-color: #374151;
+    /* gray-700 */
+    border-color: #4b5563;
+}
+
+.bgSurface {
+    background-color: rgba(14, 165, 233, 0.1);
+    /* sky-500/10 */
+    border-color: rgba(14, 165, 233, 0.3);
+}
+
+.bgSoil {
+    background-color: rgba(120, 53, 15, 0.4);
+    /* amber-900/40 */
+    border-color: #92400e;
+}
+
+/* Icons */
+.iconBananium {
+    color: #c084fc;
+}
+
+/* purple-400 */
+.iconMineral {
+    color: #60a5fa;
+}
+
+/* blue-400 */
+.iconRock {
+    color: #9ca3af;
+}
+
+/* gray-400 */
+
+.healthBarContainer {
+    position: absolute;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    height: 0.25rem;
+    background-color: #1f2937;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.healthBar {
+    height: 100%;
+    background-color: #22c55e;
+    /* green-500 */
+}
+
+.progressBarContainer {
+    position: absolute;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    height: 0.25rem;
+    background-color: #1f2937;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.progressBar {
+    height: 100%;
+    background-color: #eab308;
+    /* yellow-500 */
+}
+
+
+.coordinates {
+    position: absolute;
+    top: 0.25rem;
+    left: 0.25rem;
+    font-size: 0.625rem;
+    color: #6b7280;
+    font-family: monospace;
+}
+
+.claimedByMe {
+    border: 2px solid #3b82f6 !important;
+    /* blue-500 */
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+.claimedByOther {
+    border: 2px solid #ef4444 !important;
+    /* red-500 */
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}

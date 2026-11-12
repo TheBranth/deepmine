@@ -1,0 +1,150 @@
+.container {
+  min-height: 100vh;
+  background-color: #111827;
+  /* gray-900 */
+  color: white;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background-color: #1f2937;
+  /* gray-800 */
+  padding: 1rem;
+  border-bottom: 1px solid #374151;
+  /* gray-700 */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: linear-gradient(to right, #facc15, #ca8a04);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  margin: 0;
+}
+
+.stats {
+  display: flex;
+  gap: 1rem;
+}
+
+.statItem {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menuButton {
+  display: flex;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .menuButton {
+    display: none;
+  }
+}
+
+.sidebar {
+  width: 16rem;
+  /* 64 */
+  background-color: #1f2937;
+  border-right: 1px solid #374151;
+  padding: 1rem;
+
+  /* Mobile styles by default (hidden or off-canvas) */
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+.sidebarOpen {
+  transform: translateX(0);
+}
+
+@media (min-width: 768px) {
+  .sidebar {
+    position: static;
+    transform: none;
+    display: block;
+    height: auto;
+  }
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 40;
+}
+
+@media (min-width: 768px) {
+  .overlay {
+    display: none;
+  }
+}
+
+.sidebarTitle {
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #d1d5db;
+  /* gray-300 */
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.navButton {
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.navButton:hover {
+  background-color: #374151;
+}
+
+.content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}

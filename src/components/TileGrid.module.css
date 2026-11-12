@@ -1,0 +1,15 @@
+.gridContainer {
+    display: flex;
+    justify-content: center;
+    padding: 2rem;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+}
+
+.grid {
+    display: grid;
+    gap: 0.5rem;
+    position: relative;
+    /* Grid template columns will be set inline based on map size */
+}
