@@ -19,7 +19,24 @@ export const HomePage: React.FC = () => {
             name: username,
             resources: { water: 0, food: 0, energy: 0, fuel: 0, credits: 500 },
             inventory: { soil: 0, rock: 0, mineral: 100, bananium: 0 },
-            crew: [],
+            crew: [
+                {
+                    id: `c-${Date.now()}-1`,
+                    name: 'Chief Drill',
+                    type: 'miner' as const,
+                    state: 'idle' as const,
+                    currentTileId: null,
+                    stats: { digSpeed: 1.5, prospectiveSpeed: 1.0 },
+                },
+                {
+                    id: `c-${Date.now()}-2`,
+                    name: 'Scout Bob',
+                    type: 'scientist' as const,
+                    state: 'idle' as const,
+                    currentTileId: null,
+                    stats: { digSpeed: 1.0, prospectiveSpeed: 1.5 },
+                },
+            ],
         };
 
         addPlayer(newPlayer);

@@ -354,17 +354,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const validCrewIds = tile.assignedCrewIds!.filter(id => crew.find(c => c.id === id));
 
                     validCrewIds.forEach(crewId => {
-                        const c = crew.find(member => member.id === crewId)!;
+                        const c = crew.find(member => member.id === crewId);
+                        if (!c) return;
+
+                        const prospectiveSpeed = c.stats?.prospectiveSpeed ?? 1;
+                        const digSpeed = c.stats?.digSpeed ?? 1;
 
                         if (tile.job === 'prospect') {
-                            totalSpeed += 10 * c.stats.prospectiveSpeed;
+                            totalSpeed += 10 * prospectiveSpeed;
                         } else if (tile.job === 'mine') {
                             let bonus = 0;
                             newState.researchedTechs.forEach(id => {
                                 const tech = RESEARCH_TREE.find(t => t.id === id);
                                 if (tech && tech.effect.type === 'mining_speed') bonus += tech.effect.value;
                             });
-                            totalSpeed += 1 * c.stats.digSpeed * (1 + bonus);
+                            totalSpeed += 1 * digSpeed * (1 + bonus);
                         }
                     });
 

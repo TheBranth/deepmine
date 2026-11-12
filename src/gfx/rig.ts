@@ -12,7 +12,7 @@ export class RigManager {
     scene.add(this.group);
   }
 
-  public update(tiles: Record<string, Tile>, delta: number, elapsedSec: number) {
+  public update(tiles: Record<string, Tile>, _delta: number, elapsedSec: number) {
     const activeTileIds = new Set<string>();
 
     Object.values(tiles).forEach(tile => {
@@ -24,18 +24,19 @@ export class RigManager {
         const posY = -tile.y * 1.15;
 
         if (!rigGroup) {
-          rigGroup = this.createRigMesh(tile.y);
-          rigGroup.position.set(posX, posY, 0.65);
+          rigGroup = this.createRigMesh(tile.y, tile.job);
+          rigGroup.position.set(posX, posY, 0.55);
           this.group.add(rigGroup);
           this.activeRigs.set(tile.id, rigGroup);
 
-          // Laser beam effect for mining cutters
+          // Scanner/Cutter beam effect
           const beamGeo = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(0, 0, -0.6)
+            new THREE.Vector3(0, 0, -0.55)
           ]);
+          const isSurvey = tile.job === 'prospect';
           const beamMat = new THREE.LineBasicMaterial({
-            color: 0x00ffff,
+            color: isSurvey ? 0x38bdf8 : 0xef4444,
             linewidth: 3,
             transparent: true,
             opacity: 0.8
@@ -44,23 +45,17 @@ export class RigManager {
           rigGroup.add(beam);
           this.rigBeams.set(tile.id, beam);
         } else {
-          rigGroup.position.set(posX, posY, 0.65);
+          rigGroup.position.set(posX, posY, 0.55);
         }
 
         // Animate rig vibration and gentle hovering
-        const hoverOffset = Math.sin(elapsedSec * 6 + tile.x) * 0.04;
-        rigGroup.position.z = 0.65 + hoverOffset;
+        const hoverOffset = Math.sin(elapsedSec * 6 + tile.x) * 0.03;
+        rigGroup.position.z = 0.55 + hoverOffset;
 
-        // Animate cutter or wheels
-        const cutter = rigGroup.getObjectByName('cutter');
-        if (cutter) {
-          cutter.rotation.z += delta * 8;
-        }
-
-        // Pulse mining laser beam
+        // Pulse scanner or laser beam
         const beam = this.rigBeams.get(tile.id);
         if (beam) {
-          (beam.material as THREE.LineBasicMaterial).opacity = 0.4 + Math.sin(elapsedSec * 15) * 0.4;
+          (beam.material as THREE.LineBasicMaterial).opacity = 0.3 + Math.sin(elapsedSec * 12) * 0.4;
         }
       }
     });
@@ -75,39 +70,29 @@ export class RigManager {
     });
   }
 
-  private createRigMesh(depth: number): THREE.Group {
+  private createRigMesh(depth: number, job: 'prospect' | 'mine'): THREE.Group {
     const rigRoot = new THREE.Group();
 
-    // Pick Kenney 3D Model: Rover for shallow depths, Heavy Miner for deep depths
-    const modelKey = depth < 4 ? 'rover' : 'miner';
+    // Rover for surveying or shallow depths, Heavy Miner for deep excavation
+    const modelKey = job === 'prospect' ? 'rover' : (depth < 4 ? 'rover' : 'miner');
     const cloned = modelManager.cloneModel(modelKey);
 
     if (cloned) {
       if (modelKey === 'rover') {
-        cloned.scale.set(0.9, 0.9, 0.9);
-        cloned.rotation.x = Math.PI / 3;
-        cloned.rotation.y = Math.PI / 6;
+        cloned.scale.set(0.85, 0.85, 0.85);
+        cloned.rotation.x = Math.PI / 2.3;
       } else {
         cloned.scale.set(0.35, 0.35, 0.35);
-        cloned.rotation.x = Math.PI / 3;
-        cloned.rotation.y = -Math.PI / 8;
+        cloned.rotation.x = Math.PI / 2.3;
       }
       rigRoot.add(cloned);
     } else {
-      // Fallback procedural drill
+      // Fallback procedural mesh
       const bodyGeo = new THREE.CylinderGeometry(0.25, 0.35, 0.6, 8);
-      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.8 });
+      const bodyMat = new THREE.MeshStandardMaterial({ color: job === 'prospect' ? 0x0284c7 : 0xe11d48, metalness: 0.8 });
       const body = new THREE.Mesh(bodyGeo, bodyMat);
       body.rotation.x = Math.PI / 2;
       rigRoot.add(body);
-
-      const coneGeo = new THREE.ConeGeometry(0.25, 0.45, 8);
-      const coneMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.9, roughness: 0.2 });
-      const cone = new THREE.Mesh(coneGeo, coneMat);
-      cone.name = 'cutter';
-      cone.position.set(0, 0, 0.35);
-      cone.rotation.x = Math.PI / 2;
-      rigRoot.add(cone);
     }
 
     return rigRoot;

@@ -63,30 +63,34 @@ export class StrataManager {
       // Check if this tile should host a 3D Kenney space asset prop
       let propKey: ModelKey | null = null;
       let propScale = 1.0;
-      let propZOffset = 0.5;
+      let propZOffset = 0.0;
 
       if (isBase) {
         propKey = 'base';
-        propScale = 0.35;
-        propZOffset = 0.55;
-      } else if (tile.structure === 'relay') {
-        propKey = 'relay';
-        propScale = 0.85;
-        propZOffset = 0.52;
-      } else if (tile.structure === 'service') {
-        propKey = 'service';
-        propScale = 0.75;
-        propZOffset = 0.52;
-      } else if (tile.isMined && !tile.structure) {
-        // Structural support beams in excavated tunnels
-        propKey = 'supports';
-        propScale = 0.88;
-        propZOffset = -0.05;
-      } else if (tile.isVisible && !tile.isMined && (tile.type === 'lithium' || tile.type === 'bananium' || tile.type === 'mineral')) {
-        // Glowing ore crystals protruding from raw mineral veins
-        propKey = 'crystals';
-        propScale = 0.65;
-        propZOffset = 0.45;
+        propScale = 0.38;
+        propZOffset = 0.0;
+        mesh.visible = false; // Replace cube with base entirely
+      } else {
+        mesh.visible = true;
+        if (tile.structure === 'relay') {
+          propKey = 'relay';
+          propScale = 0.85;
+          propZOffset = 0.1;
+        } else if (tile.structure === 'service') {
+          propKey = 'service';
+          propScale = 0.75;
+          propZOffset = 0.1;
+        } else if (tile.isMined && !tile.structure) {
+          // Structural support beams in excavated tunnels
+          propKey = 'supports';
+          propScale = 0.88;
+          propZOffset = 0.0;
+        } else if (tile.isVisible && !tile.isMined && (tile.type === 'lithium' || tile.type === 'bananium' || tile.type === 'mineral')) {
+          // Glowing ore crystals protruding from raw mineral veins
+          propKey = 'crystals';
+          propScale = 0.65;
+          propZOffset = 0.1;
+        }
       }
 
       // Manage prop instance
@@ -109,13 +113,15 @@ export class StrataManager {
             });
             // Rotate models for natural isometric perspective
             if (isBase) {
-              cloned.rotation.x = Math.PI / 3;
+              cloned.rotation.x = Math.PI / 2.2;
             } else if (propKey === 'relay') {
-              cloned.rotation.x = Math.PI / 4;
+              cloned.rotation.x = Math.PI / 2.5;
+            } else if (propKey === 'service') {
+              cloned.rotation.x = Math.PI / 2.5;
             } else if (propKey === 'supports') {
               cloned.rotation.x = Math.PI / 2;
             } else if (propKey === 'crystals') {
-              cloned.rotation.x = Math.PI / 3;
+              cloned.rotation.x = Math.PI / 2.5;
             }
             this.group.add(cloned);
             this.propMeshes.set(tile.id, cloned);

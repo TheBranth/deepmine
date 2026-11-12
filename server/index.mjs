@@ -224,8 +224,22 @@ wss.on('connection', (ws) => {
               resources: { credits: 500, mineral: 0, bananium: 0 },
               inventory: {},
               crew: [
-                { id: `c-${Date.now()}-1`, name: 'Chief Drill', type: 'miner', level: 1, speed: 1.5, state: 'idle' },
-                { id: `c-${Date.now()}-2`, name: 'Scout Bob', type: 'surveyor', level: 1, speed: 1.0, state: 'idle' },
+                {
+                  id: `c-${Date.now()}-1`,
+                  name: 'Chief Drill',
+                  type: 'miner',
+                  state: 'idle',
+                  currentTileId: null,
+                  stats: { digSpeed: 1.5, prospectiveSpeed: 1.0 },
+                },
+                {
+                  id: `c-${Date.now()}-2`,
+                  name: 'Scout Bob',
+                  type: 'scientist',
+                  state: 'idle',
+                  currentTileId: null,
+                  stats: { digSpeed: 1.0, prospectiveSpeed: 1.5 },
+                },
               ],
             };
           }
@@ -343,59 +357,86 @@ wss.on('connection', (ws) => {
 setInterval(() => {
   let stateChanged = false;
 
-  // 1. Process active mining jobs
+  // 1. Process active jobs (prospecting & mining)
   Object.values(gameState.tiles).forEach(tile => {
     if (tile.job && tile.claimedBy && tile.assignedCrewIds && tile.assignedCrewIds.length > 0 && !tile.isMined) {
       const player = gameState.players[tile.claimedBy];
       if (!player) return;
 
-      const digSpeed = 25; // 25 HP per tick
-      tile.health = Math.max(0, tile.health - digSpeed);
-      tile.miningProgress = 100 - (tile.health / tile.maxHealth) * 100;
-
-      if (tile.health <= 0) {
-        tile.isMined = true;
-        tile.job = null;
-        tile.isClaimed = false;
-        tile.claimedBy = undefined;
-        tile.assignedCrewIds = [];
-
-        // Unveil adjacent fog of war
-        gameState.tiles = updateVisibility(gameState.tiles, getBaseLocations());
-
-        // Spawn transport to closest base or logistics relay
-        if (player.baseLocation && gameState.tiles[player.baseLocation]) {
-          const baseTile = gameState.tiles[player.baseLocation];
-          let destinationId = player.baseLocation;
-          let minDistance = Math.abs(tile.x - baseTile.x) + Math.abs(tile.y - baseTile.y);
-
-          // Check if player has a closer logistics relay
-          Object.values(gameState.tiles).forEach(t => {
-            if (t.structure === 'relay' && t.claimedBy === player.id) {
-              const dist = Math.abs(tile.x - t.x) + Math.abs(tile.y - t.y);
-              if (dist < minDistance) {
-                minDistance = dist;
-                destinationId = t.id;
+      if (tile.job === 'prospect') {
+        const surveySpeed = 25; // 25% progress per tick
+        tile.prospectProgress = Math.min(100, (tile.prospectProgress || 0) + surveySpeed);
+        if (tile.prospectProgress >= 100) {
+          tile.isProspected = true;
+          tile.job = null;
+          tile.assignedCrewIds = [];
+          if (player.crew) {
+            player.crew.forEach(c => {
+              if (c.currentTileId === tile.id) {
+                c.state = 'idle';
+                c.currentTileId = null;
               }
-            }
-          });
-
-          const duration = Math.max(2000, minDistance * 4000);
-          const task = {
-            id: `trans-${Date.now()}-${Math.random()}`,
-            ownerId: player.id,
-            resource: ['iron', 'copper', 'lithium', 'bananium'].includes(tile.type) ? tile.type : 'mineral',
-            amount: 10,
-            fromId: tile.id,
-            toId: destinationId,
-            startTime: Date.now(),
-            duration,
-            arrivalTime: Date.now() + duration,
-          };
-          gameState.transportQueue.push(task);
+            });
+          }
+          stateChanged = true;
         }
+      } else if (tile.job === 'mine') {
+        const digSpeed = 25; // 25 HP per tick
+        tile.health = Math.max(0, tile.health - digSpeed);
+        tile.miningProgress = 100 - (tile.health / tile.maxHealth) * 100;
 
-        stateChanged = true;
+        if (tile.health <= 0) {
+          tile.isMined = true;
+          tile.job = null;
+          tile.isClaimed = false;
+          tile.claimedBy = undefined;
+          tile.assignedCrewIds = [];
+          if (player.crew) {
+            player.crew.forEach(c => {
+              if (c.currentTileId === tile.id) {
+                c.state = 'idle';
+                c.currentTileId = null;
+              }
+            });
+          }
+
+          // Unveil adjacent fog of war
+          gameState.tiles = updateVisibility(gameState.tiles, getBaseLocations());
+
+          // Spawn transport to closest base or logistics relay
+          if (player.baseLocation && gameState.tiles[player.baseLocation]) {
+            const baseTile = gameState.tiles[player.baseLocation];
+            let destinationId = player.baseLocation;
+            let minDistance = Math.abs(tile.x - baseTile.x) + Math.abs(tile.y - baseTile.y);
+
+            // Check if player has a closer logistics relay
+            Object.values(gameState.tiles).forEach(t => {
+              if (t.structure === 'relay' && t.claimedBy === player.id) {
+                const dist = Math.abs(tile.x - t.x) + Math.abs(tile.y - t.y);
+                if (dist < minDistance) {
+                  minDistance = dist;
+                  destinationId = t.id;
+                }
+              }
+            });
+
+            const duration = Math.max(2000, minDistance * 4000);
+            const task = {
+              id: `trans-${Date.now()}-${Math.random()}`,
+              ownerId: player.id,
+              resource: ['iron', 'copper', 'lithium', 'bananium'].includes(tile.type) ? tile.type : 'mineral',
+              amount: 10,
+              fromId: tile.id,
+              toId: destinationId,
+              startTime: Date.now(),
+              duration,
+              arrivalTime: Date.now() + duration,
+            };
+            gameState.transportQueue.push(task);
+          }
+
+          stateChanged = true;
+        }
       }
     }
   });

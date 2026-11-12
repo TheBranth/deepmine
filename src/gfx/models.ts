@@ -56,8 +56,18 @@ class ModelManager {
               child.receiveShadow = true;
             }
           });
-          this.cache.set(key, root);
-          resolve(root);
+
+          // Automatically center model geometry at (0, 0, 0)
+          const box = new THREE.Box3().setFromObject(root);
+          const center = new THREE.Vector3();
+          box.getCenter(center);
+          root.position.sub(center);
+
+          const centeredGroup = new THREE.Group();
+          centeredGroup.add(root);
+
+          this.cache.set(key, centeredGroup);
+          resolve(centeredGroup);
         },
         undefined,
         (error) => {

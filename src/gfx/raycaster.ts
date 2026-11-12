@@ -20,12 +20,16 @@ export class SubterraneanRaycaster {
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, camera);
-    const intersects = this.raycaster.intersectObjects(targetGroup.children, false);
+    // Recursive true to hit meshes inside cloned GLTF groups (base, relays, props)
+    const intersects = this.raycaster.intersectObjects(targetGroup.children, true);
 
-    if (intersects.length > 0) {
-      const topMesh = intersects[0].object;
-      if (topMesh && topMesh.userData && topMesh.userData.tileId) {
-        return topMesh.userData.tileId as string;
+    for (const hit of intersects) {
+      let obj: THREE.Object3D | null = hit.object;
+      while (obj && obj !== targetGroup) {
+        if (obj.userData && obj.userData.tileId) {
+          return obj.userData.tileId as string;
+        }
+        obj = obj.parent;
       }
     }
 
