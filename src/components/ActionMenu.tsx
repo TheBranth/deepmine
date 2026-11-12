@@ -64,34 +64,40 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ tile, onClose, onSetJob,
                         </div>
                     )}
 
-                    {!isBase && !tile.isClaimed && !tile.isMined && !canBuildBase && (
-                        <button
-                            className={`${styles.button} ${tile.job === 'prospect' ? styles.buttonCancel : styles.buttonClaim}`}
-                            onClick={() => onSetJob(tile.job === 'prospect' ? null : 'prospect')}
-                            disabled={isLimitReached}
-                            style={isLimitReached ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-                        >
-                            {tile.job === 'prospect' ? 'Cancel Survey' : (isLimitReached ? 'Locked (Limit 1)' : 'Mark for Survey')}
-                        </button>
-                    )}
-
-                    {!isBase && tile.isClaimed && tile.isProspected && !tile.isMined && (
+                    {!isBase && !tile.isMined && !canBuildBase && (
                         <>
-                            <button
-                                className={`${styles.button} ${tile.job === 'mine' ? styles.buttonCancel : styles.buttonMine}`}
-                                onClick={() => onSetJob(tile.job === 'mine' ? null : 'mine')}
-                            >
-                                {tile.job === 'mine' ? 'Cancel Excavation' : 'Mark for Excavation'}
-                            </button>
-
-                            {!tile.job && (
+                            {!tile.isProspected && (
                                 <button
-                                    className={`${styles.button} ${styles.buttonCancel}`}
-                                    onClick={() => onSetJob(null)}
-                                    style={{ marginTop: '0.5rem', backgroundColor: '#ef4444' }}
+                                    className={`${styles.button} ${tile.job === 'prospect' ? styles.buttonCancel : styles.buttonClaim}`}
+                                    onClick={() => onSetJob(tile.job === 'prospect' ? null : 'prospect')}
+                                    disabled={isLimitReached && tile.job !== 'prospect'}
+                                    style={isLimitReached && tile.job !== 'prospect' ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                                 >
-                                    Release Claim
+                                    {tile.job === 'prospect' ? 'Cancel Survey' : (isLimitReached ? 'Locked (Limit 1)' : 'Mark for Survey')}
                                 </button>
+                            )}
+
+                            {tile.isProspected && (
+                                <>
+                                    <button
+                                        className={`${styles.button} ${tile.job === 'mine' ? styles.buttonCancel : styles.buttonMine}`}
+                                        onClick={() => onSetJob(tile.job === 'mine' ? null : 'mine')}
+                                        disabled={isLimitReached && tile.job !== 'mine'}
+                                        style={isLimitReached && tile.job !== 'mine' ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                                    >
+                                        {tile.job === 'mine' ? 'Cancel Excavation' : (isLimitReached ? 'Locked (Limit 1)' : 'Mark for Excavation')}
+                                    </button>
+
+                                    {tile.isClaimed && tile.claimedBy === currentUser && !tile.job && (
+                                        <button
+                                            className={`${styles.button} ${styles.buttonCancel}`}
+                                            onClick={() => onSetJob(null)}
+                                            style={{ marginTop: '0.5rem', backgroundColor: '#ef4444' }}
+                                        >
+                                            Release Claim
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </>
                     )}
