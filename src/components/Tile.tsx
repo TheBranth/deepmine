@@ -77,6 +77,19 @@ export const Tile: React.FC<TileProps> = ({ tile, onClick, isBase, baseLevel = 0
                 <DrillOverlay depth={tile.y} timeLeft={tile.timeLeft || 0} />
             )}
 
+            {/* Claim Owner Tag */}
+            {tile.isClaimed && tile.claimedBy && !isBase && (
+                <span
+                    className={`absolute top-0.5 right-0.5 px-1 rounded text-[9px] font-mono font-bold uppercase ${
+                        tile.claimedBy === currentUser
+                            ? 'bg-cyan-500/80 text-slate-950'
+                            : 'bg-rose-500/90 text-white'
+                    }`}
+                >
+                    {tile.claimedBy === currentUser ? 'YOU' : tile.claimedBy.slice(0, 5)}
+                </span>
+            )}
+
             {/* Coordinates */}
             <span className={styles.coordinates}>
                 {tile.x},{tile.y}

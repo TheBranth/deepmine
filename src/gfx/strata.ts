@@ -20,7 +20,12 @@ export class StrataManager {
     scene.add(this.selectionMesh);
   }
 
-  public updateTiles(tiles: Record<string, Tile>, selectedTileId: string | null, baseLocation: string | null) {
+  public updateTiles(
+    tiles: Record<string, Tile>,
+    selectedTileId: string | null,
+    baseLocation: string | null,
+    currentUser: string | null = null
+  ) {
     const tileList = Object.values(tiles);
     const activeTileIds = new Set(tileList.map(t => t.id));
 
@@ -31,6 +36,8 @@ export class StrataManager {
       const posZ = 0;
 
       const isBase = tile.id === baseLocation;
+      const isClaimedOrActive = (tile.isClaimed && Boolean(tile.claimedBy)) || Boolean(tile.job);
+      const isMineByMe = Boolean(currentUser && tile.claimedBy === currentUser);
 
       // Select material
       let mat: THREE.Material;
@@ -40,6 +47,14 @@ export class StrataManager {
         mat = StrataMaterials.relay;
       } else if (tile.structure === 'service') {
         mat = StrataMaterials.service;
+      } else if (!isBase && !tile.isMined && isClaimedOrActive) {
+        if (!isMineByMe) {
+          mat = StrataMaterials.claimedOther;
+        } else if (tile.job === 'prospect') {
+          mat = StrataMaterials.claimedProspectMe;
+        } else {
+          mat = StrataMaterials.claimedMineMe;
+        }
       } else if (StrataMaterials[tile.type]) {
         mat = StrataMaterials[tile.type];
       } else {

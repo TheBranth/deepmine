@@ -131,13 +131,13 @@
 }
 
 .claimedByMe {
-    border: 2px solid #3b82f6 !important;
-    /* blue-500 */
-    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+    border: 2px solid #06b6d4 !important;
+    background-color: rgba(6, 182, 212, 0.22) !important;
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.55);
 }
 
 .claimedByOther {
-    border: 2px solid #ef4444 !important;
-    /* red-500 */
-    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+    border: 2px solid #f43f5e !important;
+    background-color: rgba(244, 63, 94, 0.25) !important;
+    box-shadow: 0 0 12px rgba(244, 63, 94, 0.55);
 }

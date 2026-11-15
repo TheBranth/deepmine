@@ -73,4 +73,25 @@ export const StrataMaterials: Record<string, THREE.Material> = {
     color: 0x38bdf8,
     wireframe: true,
   }),
+  claimedProspectMe: new THREE.MeshStandardMaterial({
+    color: 0x06b6d4,
+    emissive: 0x0891b2,
+    emissiveIntensity: 0.55,
+    roughness: 0.3,
+    metalness: 0.2,
+  }),
+  claimedMineMe: new THREE.MeshStandardMaterial({
+    color: 0x10b981,
+    emissive: 0x059669,
+    emissiveIntensity: 0.55,
+    roughness: 0.3,
+    metalness: 0.2,
+  }),
+  claimedOther: new THREE.MeshStandardMaterial({
+    color: 0xf43f5e,
+    emissive: 0xe11d48,
+    emissiveIntensity: 0.55,
+    roughness: 0.3,
+    metalness: 0.2,
+  }),
 };

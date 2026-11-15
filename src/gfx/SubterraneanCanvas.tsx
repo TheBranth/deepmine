@@ -57,7 +57,7 @@ export const SubterraneanCanvas: React.FC<SubterraneanCanvasProps> = ({ onSelect
     let isMounted = true;
     modelManager.preloadAll().then(() => {
       if (isMounted) {
-        strataMgr.updateTiles(gameState.tiles, selectedTileId, gameState.baseLocation);
+        strataMgr.updateTiles(gameState.tiles, selectedTileId, gameState.baseLocation, gameState.currentUser);
       }
     });
 
@@ -91,7 +91,7 @@ export const SubterraneanCanvas: React.FC<SubterraneanCanvasProps> = ({ onSelect
     animate();
 
     // Initial tile placement
-    strataMgr.updateTiles(gameState.tiles, selectedTileId, gameState.baseLocation);
+    strataMgr.updateTiles(gameState.tiles, selectedTileId, gameState.baseLocation, gameState.currentUser);
 
     // 5. Cleanup
     return () => {
