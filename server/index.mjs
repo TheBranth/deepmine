@@ -7,6 +7,8 @@ import { WebSocketServer, WebSocket } from 'ws';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DIST_DIR = path.resolve(__dirname, '../dist');
+const DATA_DIR = process.env.DATA_DIR || path.resolve(__dirname, 'data');
+const STATE_FILE = path.join(DATA_DIR, 'gamestate.json');
 
 const PORT = process.env.PORT || 3000;
 
@@ -130,14 +132,72 @@ function updateVisibility(tiles, baseLocations = []) {
 }
 
 // ---------------------------------------------------------
-// Global Shared Game State
+// Global Shared Game State & Disk Persistence
 // ---------------------------------------------------------
-const gameState = {
-  tiles: generateMap(10, 20),
-  players: {},
-  marketListings: [],
-  transportQueue: [],
-};
+function loadState() {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      const raw = fs.readFileSync(STATE_FILE, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.tiles && Object.keys(parsed.tiles).length > 0) {
+        console.log(`[Persistence] Loaded saved world from ${STATE_FILE} (${Object.keys(parsed.players || {}).length} players)`);
+        return {
+          tiles: parsed.tiles,
+          players: parsed.players || {},
+          marketListings: parsed.marketListings || [],
+          transportQueue: parsed.transportQueue || [],
+        };
+      }
+    }
+  } catch (err) {
+    console.error('[Persistence] Failed to load state, generating fresh world:', err);
+  }
+  return {
+    tiles: generateMap(10, 20),
+    players: {},
+    marketListings: [],
+    transportQueue: [],
+  };
+}
+
+const gameState = loadState();
+let stateDirty = false;
+
+function saveStateNow() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    const tmpFile = `${STATE_FILE}.tmp`;
+    fs.writeFileSync(tmpFile, JSON.stringify(gameState), 'utf8');
+    fs.renameSync(tmpFile, STATE_FILE);
+    stateDirty = false;
+  } catch (err) {
+    console.error('[Persistence] Failed to save state:', err);
+  }
+}
+
+function markDirty(immediate = false) {
+  stateDirty = true;
+  if (immediate) {
+    saveStateNow();
+  }
+}
+
+setInterval(() => {
+  if (stateDirty) {
+    saveStateNow();
+  }
+}, 2000);
+
+process.on('SIGINT', () => {
+  if (stateDirty) saveStateNow();
+  process.exit(0);
+});
+process.on('SIGTERM', () => {
+  if (stateDirty) saveStateNow();
+  process.exit(0);
+});
 
 // ---------------------------------------------------------
 // HTTP Server (Serving compiled Vite frontend & assets)
@@ -149,6 +209,7 @@ const server = http.createServer((req, res) => {
     gameState.players = {};
     gameState.marketListings = [];
     gameState.transportQueue = [];
+    saveStateNow();
     broadcast({
       type: 'INIT_STATE',
       state: {
@@ -261,6 +322,7 @@ wss.on('connection', (ws) => {
                 },
               ],
             };
+            markDirty(true);
           }
           const player = gameState.players[currentUser];
           ws.send(JSON.stringify({
@@ -279,6 +341,7 @@ wss.on('connection', (ws) => {
           gameState.players = {};
           gameState.marketListings = [];
           gameState.transportQueue = [];
+          saveStateNow();
           broadcast({
             type: 'INIT_STATE',
             state: {
@@ -314,6 +377,7 @@ wss.on('connection', (ws) => {
               tiles: gameState.tiles,
               players: gameState.players,
             });
+            markDirty(true);
           }
           break;
         }
@@ -332,6 +396,7 @@ wss.on('connection', (ws) => {
               tile,
               players: gameState.players,
             });
+            markDirty(true);
           }
           break;
         }
@@ -570,6 +635,7 @@ setInterval(() => {
   }
 
   if (stateChanged) {
+    markDirty();
     broadcast({
       type: 'TICK_UPDATE',
       tiles: gameState.tiles,
