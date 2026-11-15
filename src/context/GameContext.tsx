@@ -540,7 +540,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                     if (tech && tech.effect.type === 'logistics') logisticsSpeedMult += tech.effect.value;
                                 });
 
-                                const duration = (distance * 5000) / logisticsSpeedMult;
+                                const duration = Math.max(4000, (distance * 5000) / logisticsSpeedMult);
 
                                 // Determine resource type to gain (map soil/rock to mineral)
                                 let resourceGained = 'mineral';

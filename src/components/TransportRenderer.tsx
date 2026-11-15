@@ -45,18 +45,25 @@ export const TransportRenderer: React.FC = () => {
 
                 if (!fromTile || !toTile) return null;
 
-                // Calculate Progress
+                // Calculate Progress (round trip: hub -> mine -> hub)
                 const elapsed = now - task.startTime;
                 const progress = Math.min(1, Math.max(0, elapsed / task.duration));
+                const isOutbound = progress < 0.5;
+                const legProgress = isOutbound ? progress * 2 : (progress - 0.5) * 2;
 
                 // Coordinates (normalized to grid container)
-                const startX = (fromTile.x - minX) * TILE_SIZE_REM;
-                const startY = (fromTile.y - minY) * TILE_SIZE_REM;
-                const endX = (toTile.x - minX) * TILE_SIZE_REM;
-                const endY = (toTile.y - minY) * TILE_SIZE_REM;
+                const mineX = (fromTile.x - minX) * TILE_SIZE_REM;
+                const mineY = (fromTile.y - minY) * TILE_SIZE_REM;
+                const hubX = (toTile.x - minX) * TILE_SIZE_REM;
+                const hubY = (toTile.y - minY) * TILE_SIZE_REM;
 
-                const currentX = startX + (endX - startX) * progress;
-                const currentY = startY + (endY - startY) * progress;
+                const startX = isOutbound ? hubX : mineX;
+                const startY = isOutbound ? hubY : mineY;
+                const endX = isOutbound ? mineX : hubX;
+                const endY = isOutbound ? mineY : hubY;
+
+                const currentX = startX + (endX - startX) * legProgress;
+                const currentY = startY + (endY - startY) * legProgress;
 
                 const isMyTransport = task.ownerId === gameState.currentUser;
                 const bgColor = isMyTransport ? 'bg-blue-600' : 'bg-amber-600'; // Blue for me, Amber for others
@@ -78,10 +85,12 @@ export const TransportRenderer: React.FC = () => {
                         <div className={`${bgColor} p-2 rounded-full shadow-lg animate-pulse text-white`}>
                             <Box size={24} />
                         </div>
-                        {/* Optional: Show amount */}
-                        <span className="absolute -top-1 bg-black/50 text-white text-xs px-1 rounded">
-                            {task.amount}
-                        </span>
+                        {/* Show cargo amount once picked up on return leg */}
+                        {!isOutbound && (
+                            <span className="absolute -top-1 bg-black/70 text-white text-xs px-1 rounded">
+                                {task.amount}
+                            </span>
+                        )}
                     </div>
                 );
             })}

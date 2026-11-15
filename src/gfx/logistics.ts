@@ -79,41 +79,16 @@ export class LogisticsManager {
       const elapsed = now - task.startTime;
       const progress = Math.min(1, Math.max(0, elapsed / task.duration));
 
-      const startPos = new THREE.Vector3(fromTile.x * 1.15, -fromTile.y * 1.15, 0.55);
-      const endPos = new THREE.Vector3(toTile.x * 1.15, -toTile.y * 1.15, 0.55);
+      const minePos = new THREE.Vector3(fromTile.x * 1.15, -fromTile.y * 1.15, 0.55);
+      const hubPos = new THREE.Vector3(toTile.x * 1.15, -toTile.y * 1.15, 0.55);
 
-      // Manhattan 3D Position
-      const dx = endPos.x - startPos.x;
-      const dy = endPos.y - startPos.y;
-      const totalDist = Math.abs(dx) + Math.abs(dy);
+      // Round trip: first half (0..0.5) hub -> mine (empty), second half (0.5..1) mine -> hub (loaded)
+      const isOutbound = progress < 0.5;
+      const legProgress = isOutbound ? progress * 2 : (progress - 0.5) * 2;
+      const legStart = isOutbound ? hubPos : minePos;
+      const legEnd = isOutbound ? minePos : hubPos;
 
-      let currentPos: THREE.Vector3;
-      let headingAngle = 0;
-
-      if (totalDist === 0) {
-        currentPos = startPos.clone();
-      } else {
-        const threshold = Math.abs(dx) / totalDist;
-        if (progress <= threshold) {
-          const segP = threshold > 0 ? progress / threshold : 0;
-          currentPos = new THREE.Vector3(
-            startPos.x + dx * segP,
-            startPos.y,
-            0.55
-          );
-          // Moving horizontally
-          headingAngle = dx >= 0 ? 0 : Math.PI;
-        } else {
-          const segP = threshold < 1 ? (progress - threshold) / (1 - threshold) : 0;
-          currentPos = new THREE.Vector3(
-            endPos.x,
-            startPos.y + dy * segP,
-            0.55
-          );
-          // Moving vertically
-          headingAngle = dy >= 0 ? Math.PI / 2 : -Math.PI / 2;
-        }
-      }
+      const { pos: currentPos, headingAngle } = this.computeManhattanStep(legStart, legEnd, legProgress);
 
       // Add gentle hovering oscillation
       currentPos.z += Math.sin(elapsedSec * 8 + task.duration) * 0.05;
@@ -133,11 +108,12 @@ export class LogisticsManager {
           craftModel.rotation.x = Math.PI / 4;
           cargoGroup.add(craftModel);
 
-          // Add glowing resource barrel on top
+          // Add resource barrel on top (only visible on return leg with cargo)
           const barrelModel = modelManager.cloneModel('barrel');
           if (barrelModel) {
             barrelModel.scale.set(0.7, 0.7, 0.7);
             barrelModel.position.set(0, 0, 0.15);
+            barrelModel.userData.isCargoBarrel = true;
             cargoGroup.add(barrelModel);
           }
         } else {
@@ -150,6 +126,13 @@ export class LogisticsManager {
         this.cargoGroups.set(task.id, cargoGroup);
       }
 
+      // Show barrel only once ore is picked up at the mined tile
+      cargoGroup.children.forEach(child => {
+        if (child.userData.isCargoBarrel) {
+          child.visible = !isOutbound;
+        }
+      });
+
       cargoGroup.position.copy(currentPos);
       cargoGroup.rotation.z = headingAngle;
     });
@@ -161,6 +144,31 @@ export class LogisticsManager {
         this.cargoGroups.delete(id);
       }
     });
+  }
+
+  private computeManhattanStep(startPos: THREE.Vector3, endPos: THREE.Vector3, progress: number) {
+    const dx = endPos.x - startPos.x;
+    const dy = endPos.y - startPos.y;
+    const totalDist = Math.abs(dx) + Math.abs(dy);
+
+    if (totalDist === 0) {
+      return { pos: startPos.clone(), headingAngle: 0 };
+    }
+
+    const threshold = Math.abs(dx) / totalDist;
+    if (progress <= threshold) {
+      const segP = threshold > 0 ? progress / threshold : 0;
+      return {
+        pos: new THREE.Vector3(startPos.x + dx * segP, startPos.y, startPos.z),
+        headingAngle: dx >= 0 ? 0 : Math.PI,
+      };
+    }
+
+    const segP = threshold < 1 ? (progress - threshold) / (1 - threshold) : 0;
+    return {
+      pos: new THREE.Vector3(endPos.x, startPos.y + dy * segP, startPos.z),
+      headingAngle: dy >= 0 ? Math.PI / 2 : -Math.PI / 2,
+    };
   }
 
   public cleanup() {

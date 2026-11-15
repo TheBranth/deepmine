@@ -534,7 +534,7 @@ setInterval(() => {
               }
             });
 
-            const duration = Math.max(2000, minDistance * 4000);
+            const duration = Math.max(4000, minDistance * 5000);
             const task = {
               id: `trans-${Date.now()}-${Math.random()}`,
               ownerId: player.id,
