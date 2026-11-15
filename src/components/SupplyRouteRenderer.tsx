@@ -68,48 +68,52 @@ export const SupplyRouteRenderer: React.FC = () => {
         }
     };
 
-    // 1. Render permanent supply lines between Logistics Relays and Base
+    // 1. Render permanent zipline tubes between Base and Relays within 5 cells
     const relaySupplyLines: React.ReactElement[] = [];
-    if (baseLocation) {
-        const baseCoords = getCoords(baseLocation);
-        if (baseCoords) {
-            Object.values(tiles).forEach(t => {
-                if (t.structure === 'relay' && t.isMined) {
-                    const relayCoords = getCoords(t.id);
-                    if (relayCoords) {
-                        const pathData = getManhattanPath(relayCoords.x, relayCoords.y, baseCoords.x, baseCoords.y);
-                        const isMyRelay = t.claimedBy === currentUser;
-                        const strokeColor = isMyRelay ? '#2563eb' : '#d97706'; // blue for player, amber for other
+    const hubs: Array<{ id: string; x: number; y: number }> = [];
+    if (baseLocation && tiles[baseLocation]) {
+        const b = tiles[baseLocation];
+        hubs.push({ id: b.id, x: b.x, y: b.y });
+    }
+    Object.values(tiles).forEach(t => {
+        if (t.structure === 'relay' && t.isMined && t.claimedBy === currentUser) {
+            hubs.push({ id: t.id, x: t.x, y: t.y });
+        }
+    });
 
-                        relaySupplyLines.push(
-                            <g key={`relay-line-${t.id}`}>
-                                {/* Background pipeline tube */}
-                                <path
-                                    d={pathData}
-                                    fill="none"
-                                    stroke={strokeColor}
-                                    strokeWidth="3"
-                                    opacity="0.2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                                {/* Moving dots inside the tube */}
-                                <path
-                                    d={pathData}
-                                    fill="none"
-                                    stroke={strokeColor}
-                                    strokeWidth="1.5"
-                                    strokeDasharray="6 12"
-                                    className="animate-[flow_2s_linear_infinite]"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    opacity="0.6"
-                                />
-                            </g>
-                        );
-                    }
+    for (let i = 0; i < hubs.length; i++) {
+        for (let j = i + 1; j < hubs.length; j++) {
+            const a = hubs[i];
+            const b = hubs[j];
+            const dist = Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+            if (dist <= 5) {
+                const cA = getCoords(a.id);
+                const cB = getCoords(b.id);
+                if (cA && cB) {
+                    const pathData = `M ${cA.x} ${cA.y} L ${cB.x} ${cB.y}`;
+                    relaySupplyLines.push(
+                        <g key={`zipline-${a.id}-${b.id}`}>
+                            <path
+                                d={pathData}
+                                fill="none"
+                                stroke="#06b6d4"
+                                strokeWidth="3"
+                                opacity="0.28"
+                                strokeLinecap="round"
+                            />
+                            <path
+                                d={pathData}
+                                fill="none"
+                                stroke="#38bdf8"
+                                strokeWidth="1.5"
+                                strokeDasharray="6 10"
+                                strokeLinecap="round"
+                                opacity="0.7"
+                            />
+                        </g>
+                    );
                 }
-            });
+            }
         }
     }
 

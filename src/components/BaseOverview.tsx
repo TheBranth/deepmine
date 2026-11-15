@@ -11,7 +11,9 @@ export const BaseOverview: React.FC = () => {
     const prospectedCount = allTiles.filter(t => t.isProspected).length;
     const myStructures = allTiles.filter(t => t.claimedBy === gameState.currentUser && Boolean(t.structure));
     const relayCount = myStructures.filter(t => t.structure === 'relay').length;
-    const serviceCount = myStructures.filter(t => t.structure === 'service').length;
+    const scannerCount = myStructures.filter(t => t.structure === 'scanner').length;
+    const commandCount = myStructures.filter(t => t.structure === 'command').length;
+    const droneCount = myStructures.filter(t => t.structure === 'drone').length;
 
     const digBonus = getResearchBonus('digSpeed');
     const visBonus = getResearchBonus('visibility');
@@ -70,19 +72,19 @@ export const BaseOverview: React.FC = () => {
 
                     <div className="bg-[#0b101a] border border-slate-800 rounded-lg p-4">
                         <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                            <Radio size={12} className="text-blue-400" /> Relay Beacons
+                            <Radio size={12} className="text-blue-400" /> Relays / Scanners
                         </div>
                         <div className="text-2xl font-mono font-bold text-blue-300 mt-1">
-                            {relayCount}
+                            {relayCount} <span className="text-slate-600">/</span> <span className="text-cyan-300">{scannerCount}</span>
                         </div>
                     </div>
 
                     <div className="bg-[#0b101a] border border-slate-800 rounded-lg p-4">
                         <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                            <Layers size={12} className="text-indigo-400" /> Repair Bays
+                            <Layers size={12} className="text-emerald-400" /> Cmd / Drones
                         </div>
-                        <div className="text-2xl font-mono font-bold text-indigo-300 mt-1">
-                            {serviceCount}
+                        <div className="text-2xl font-mono font-bold text-emerald-300 mt-1">
+                            {commandCount} <span className="text-slate-600">/</span> <span className="text-amber-300">{droneCount}</span>
                         </div>
                     </div>
                 </div>

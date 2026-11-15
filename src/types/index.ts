@@ -10,6 +10,15 @@ export interface Resources {
 
 export type TileType = 'soil' | 'rock' | 'mineral' | 'iron' | 'copper' | 'lithium' | 'bananium';
 
+export type StructureType = 'relay' | 'scanner' | 'command' | 'drone';
+
+export interface TileBuilding {
+  type: 'base' | StructureType;
+  owner: string;
+  level: number;
+  lastExtractTime?: number;
+}
+
 export interface Tile {
   id: string;
   x: number;
@@ -17,6 +26,7 @@ export interface Tile {
   type: TileType;
   health: number; // Health of the tile (mining progress)
   maxHealth: number;
+  yield?: number;
   isClaimed: boolean;
   claimedBy?: string; // Player ID
 
@@ -34,7 +44,8 @@ export interface Tile {
   // Job System
   job?: 'prospect' | 'mine' | null;
   assignedCrewIds?: string[]; // Multiple crew support
-  structure?: 'relay' | 'service' | null;
+  structure?: StructureType | null;
+  building?: TileBuilding | null;
 }
 
 export type CrewType = 'engineer' | 'miner' | 'scientist';
@@ -62,16 +73,25 @@ export interface Player {
   // Equipment slots, etc.
 }
 
+export interface TransportLeg {
+  x: number;
+  y: number;
+  fast: boolean;
+  startFrac: number; // 0..1 within leg
+  endFrac: number;   // 0..1 within leg
+}
+
 export interface TransportTask {
   id: string;
   ownerId: string; // Player ID who owns this transport
   resource: string; // 'mineral' | 'bananium'
   amount: number;
   fromId: string;
-  toId: string; // Usually baseLocation
+  toId: string; // Nearest hub / baseLocation
   startTime: number;
   duration: number; // ms
   arrivalTime: number;
+  route?: Array<{ x: number; y: number; fast: boolean }>;
 }
 
 export interface MarketListing {

@@ -8,9 +8,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DIST_DIR = path.resolve(__dirname, '../dist');
 const DATA_DIR = process.env.DATA_DIR || path.resolve(__dirname, 'data');
-const STATE_FILE = path.join(DATA_DIR, 'gamestate.json');
+const WORLD_FILE = path.join(DATA_DIR, 'world.jsonl');
+const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
+const LEGACY_STATE_FILE = path.join(DATA_DIR, 'gamestate.json');
 
 const PORT = process.env.PORT || 3000;
+const ZIPLINE_RANGE = 5;
+const ZIPLINE_SPEED_MULT = 3.0;
+const DRONE_INTERVAL_MS = 3600000; // 1 unit per hour
+
+const STRUCTURE_COSTS = {
+  relay: { credits: 150, mineral: 50 },
+  scanner: { credits: 250, mineral: 100 },
+  command: { credits: 300, mineral: 120 },
+  drone: { credits: 400, mineral: 150 },
+};
 
 // MIME types for static assets
 const MIME_TYPES = {
@@ -37,36 +49,63 @@ function generateMap(width = 10, depth = 20) {
   for (let x = -radius; x <= radius; x++) {
     for (let y = 0; y <= depth; y++) {
       let type = 'soil';
-      let health = 100;
+      let yieldAmount = 10;
 
       if (y === 0) {
+        // Row 0 is reserved for Command Domes / surface bases
         type = 'soil';
-        health = 50;
+        yieldAmount = 5;
       } else {
         const rand = Math.random();
-        if (y < 2) {
-          type = 'soil';
+        if (y === 1) {
+          // Shallow crust: soil, rock, or occasional iron — never bananium
+          if (rand > 0.85) type = 'iron';
+          else if (rand > 0.65) type = 'rock';
+          else type = 'soil';
+          yieldAmount = 8 + Math.floor(Math.random() * 5);
         } else if (y < 5) {
-          if (rand > 0.8) type = 'rock';
-        } else if (y < 10) {
-          if (rand > 0.85) type = 'mineral';
-          else if (rand > 0.6) type = 'rock';
+          if (rand > 0.88) type = 'copper';
+          else if (rand > 0.72) type = 'iron';
+          else if (rand > 0.45) type = 'rock';
+          else type = 'soil';
+          yieldAmount = 10 + y * 2 + Math.floor(Math.random() * 6);
+        } else if (y < 9) {
+          if (rand > 0.90) type = 'lithium';
+          else if (rand > 0.76) type = 'mineral';
+          else if (rand > 0.60) type = 'copper';
+          else if (rand > 0.45) type = 'iron';
+          else type = 'rock';
+          yieldAmount = 14 + y * 2 + Math.floor(Math.random() * 8);
+        } else if (y < 14) {
+          // Mid-deep: rare bananium starts appearing
+          if (rand > 0.92) type = 'bananium';
+          else if (rand > 0.78) type = 'lithium';
+          else if (rand > 0.60) type = 'mineral';
+          else if (rand > 0.45) type = 'copper';
+          else type = 'rock';
+          yieldAmount = 18 + y * 2 + Math.floor(Math.random() * 10);
         } else {
-          if (rand > 0.95) type = 'bananium';
-          else if (rand > 0.85) type = 'mineral';
-          else if (rand > 0.5) type = 'rock';
+          // Deep core: rich bananium, lithium, and mineral veins
+          if (rand > 0.82) type = 'bananium';
+          else if (rand > 0.62) type = 'lithium';
+          else if (rand > 0.40) type = 'mineral';
+          else type = 'rock';
+          yieldAmount = 25 + y * 2 + Math.floor(Math.random() * 15);
         }
       }
 
-      const baseHealth = y === 0 ? 10 : 180 * (y * y);
+      const baseHealth = y === 0 ? 50 : 60 + y * 20;
       let typeModifier = 1;
       switch (type) {
         case 'soil': typeModifier = 1; break;
-        case 'rock': typeModifier = 1.5; break;
-        case 'mineral': typeModifier = 2; break;
-        case 'bananium': typeModifier = 3; break;
+        case 'rock': typeModifier = 1.4; break;
+        case 'iron': typeModifier = 1.5; break;
+        case 'copper': typeModifier = 1.6; break;
+        case 'mineral': typeModifier = 1.8; break;
+        case 'lithium': typeModifier = 2.0; break;
+        case 'bananium': typeModifier = 2.5; break;
       }
-      health = Math.floor(baseHealth * typeModifier);
+      const health = Math.floor(baseHealth * typeModifier);
 
       const id = `${x},${y}`;
       map[id] = {
@@ -76,14 +115,16 @@ function generateMap(width = 10, depth = 20) {
         type,
         health,
         maxHealth: health,
+        yield: yieldAmount,
         isClaimed: false,
         claimedBy: undefined,
-        isProspected: false,
+        isProspected: y === 0,
         isVisible: y === 0,
-        prospectProgress: 0,
+        prospectProgress: y === 0 ? 100 : 0,
         miningProgress: 0,
         isMined: false,
         structure: null,
+        building: null,
       };
     }
   }
@@ -113,17 +154,14 @@ function updateVisibility(tiles, baseLocations = []) {
     }
   };
 
-  // 1. Surface is always visible
   Object.values(newTiles).forEach(t => {
     if (t.y === 0) t.isVisible = true;
   });
 
-  // 2. Bases reveal neighbors
   baseLocations.forEach(bId => {
     if (bId && newTiles[bId]) revealNeighbors(bId);
   });
 
-  // 3. Mined tiles reveal neighbors
   Object.values(newTiles).forEach(t => {
     if (t.isMined) revealNeighbors(t.id);
   });
@@ -132,15 +170,96 @@ function updateVisibility(tiles, baseLocations = []) {
 }
 
 // ---------------------------------------------------------
+// JSONL World Serialization (1 depth row per line)
+// ---------------------------------------------------------
+function serializeWorldJsonl(tiles) {
+  const rowsByDepth = new Map();
+  Object.values(tiles).forEach(t => {
+    if (!rowsByDepth.has(t.y)) {
+      rowsByDepth.set(t.y, {});
+    }
+    rowsByDepth.get(t.y)[String(t.x)] = {
+      status: t.isMined ? 'mined' : t.isProspected ? 'prospected' : 'raw',
+      isVisible: Boolean(t.isVisible),
+      material: t.type,
+      yield: t.yield || 10,
+      health: t.health,
+      maxHealth: t.maxHealth,
+      claim: t.claimedBy || null,
+      building: t.building || (t.structure ? { type: t.structure, owner: t.claimedBy || null, level: 1 } : null),
+      job: t.job || null,
+      prospectProgress: t.prospectProgress || 0,
+      miningProgress: t.miningProgress || 0,
+      assignedCrewIds: t.assignedCrewIds || [],
+    };
+  });
+
+  const depths = Array.from(rowsByDepth.keys()).sort((a, b) => a - b);
+  return depths.map(depth => JSON.stringify({ depth, cells: rowsByDepth.get(depth) })).join('\n') + '\n';
+}
+
+function parseWorldJsonl(content) {
+  const tiles = {};
+  const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
+  for (const line of lines) {
+    const row = JSON.parse(line);
+    const y = Number(row.depth);
+    const cells = row.cells || {};
+    for (const [xStr, cell] of Object.entries(cells)) {
+      const x = Number(xStr);
+      const id = `${x},${y}`;
+      const building = cell.building || null;
+      const structure = building && building.type !== 'base' ? building.type : null;
+      tiles[id] = {
+        id,
+        x,
+        y,
+        type: cell.material || 'soil',
+        health: cell.health ?? 100,
+        maxHealth: cell.maxHealth ?? 100,
+        yield: cell.yield ?? 10,
+        isClaimed: Boolean(cell.claim),
+        claimedBy: cell.claim || undefined,
+        isProspected: cell.status === 'prospected' || cell.status === 'mined',
+        isVisible: Boolean(cell.isVisible),
+        prospectProgress: cell.prospectProgress ?? (cell.status !== 'raw' ? 100 : 0),
+        miningProgress: cell.miningProgress ?? (cell.status === 'mined' ? 100 : 0),
+        isMined: cell.status === 'mined',
+        job: cell.job || null,
+        assignedCrewIds: cell.assignedCrewIds || [],
+        structure,
+        building,
+      };
+    }
+  }
+  return tiles;
+}
+
+// ---------------------------------------------------------
 // Global Shared Game State & Disk Persistence
 // ---------------------------------------------------------
 function loadState() {
   try {
-    if (fs.existsSync(STATE_FILE)) {
-      const raw = fs.readFileSync(STATE_FILE, 'utf8');
-      const parsed = JSON.parse(raw);
+    if (fs.existsSync(WORLD_FILE)) {
+      const worldRaw = fs.readFileSync(WORLD_FILE, 'utf8');
+      const tiles = parseWorldJsonl(worldRaw);
+      let playerData = { players: {}, marketListings: [], transportQueue: [] };
+      if (fs.existsSync(PLAYERS_FILE)) {
+        playerData = JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8'));
+      }
+      if (Object.keys(tiles).length > 0) {
+        console.log(`[Persistence] Loaded world.jsonl (${Object.keys(tiles).length} cells, ${Object.keys(playerData.players || {}).length} captains)`);
+        return {
+          tiles,
+          players: playerData.players || {},
+          marketListings: playerData.marketListings || [],
+          transportQueue: playerData.transportQueue || [],
+        };
+      }
+    } else if (fs.existsSync(LEGACY_STATE_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(LEGACY_STATE_FILE, 'utf8'));
       if (parsed && parsed.tiles && Object.keys(parsed.tiles).length > 0) {
-        console.log(`[Persistence] Loaded saved world from ${STATE_FILE} (${Object.keys(parsed.players || {}).length} players)`);
+        console.log('[Persistence] Migrated legacy gamestate.json to world.jsonl');
         return {
           tiles: parsed.tiles,
           players: parsed.players || {},
@@ -152,6 +271,7 @@ function loadState() {
   } catch (err) {
     console.error('[Persistence] Failed to load state, generating fresh world:', err);
   }
+
   return {
     tiles: generateMap(10, 20),
     players: {},
@@ -168,13 +288,30 @@ function saveStateNow() {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    const tmpFile = `${STATE_FILE}.tmp`;
-    fs.writeFileSync(tmpFile, JSON.stringify(gameState), 'utf8');
-    fs.renameSync(tmpFile, STATE_FILE);
+    const worldTmp = `${WORLD_FILE}.tmp`;
+    fs.writeFileSync(worldTmp, serializeWorldJsonl(gameState.tiles), 'utf8');
+    fs.renameSync(worldTmp, WORLD_FILE);
+
+    const playersTmp = `${PLAYERS_FILE}.tmp`;
+    fs.writeFileSync(
+      playersTmp,
+      JSON.stringify({
+        players: gameState.players,
+        marketListings: gameState.marketListings,
+        transportQueue: gameState.transportQueue,
+      }),
+      'utf8'
+    );
+    fs.renameSync(playersTmp, PLAYERS_FILE);
     stateDirty = false;
   } catch (err) {
     console.error('[Persistence] Failed to save state:', err);
   }
+}
+
+// Pre-write world.jsonl on first boot so the season file exists immediately
+if (!fs.existsSync(WORLD_FILE)) {
+  saveStateNow();
 }
 
 function markDirty(immediate = false) {
@@ -198,6 +335,94 @@ process.on('SIGTERM', () => {
   if (stateDirty) saveStateNow();
   process.exit(0);
 });
+
+// ---------------------------------------------------------
+// Structure Effect & Shuttle Route Helpers
+// ---------------------------------------------------------
+function hasScannerConeBoost(tiles, targetTile) {
+  return Object.values(tiles).some(s => {
+    const type = s.building?.type || s.structure;
+    if (type !== 'scanner') return false;
+    const dy = targetTile.y - s.y;
+    // 1, 3, 5, 7 width straight below (dy = 1..4)
+    return dy >= 1 && dy <= 4 && Math.abs(targetTile.x - s.x) <= dy - 1;
+  });
+}
+
+function hasCommandAuraBoost(tiles, targetTile, playerId) {
+  return Object.values(tiles).some(c => {
+    const type = c.building?.type || c.structure;
+    if (type !== 'command' || c.claimedBy !== playerId) return false;
+    // Affects only the 3 cells around/below (left, right, directly below)
+    const dx = Math.abs(targetTile.x - c.x);
+    const dy = targetTile.y - c.y;
+    return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+  });
+}
+
+function buildShuttleRoute(tiles, player, minedTile) {
+  const baseTile = player.baseLocation ? tiles[player.baseLocation] : null;
+  if (!baseTile) return null;
+
+  const hubs = [baseTile];
+  Object.values(tiles).forEach(t => {
+    if (t.structure === 'relay' && t.claimedBy === player.id) {
+      hubs.push(t);
+    }
+  });
+
+  // BFS from baseTile along zipline links (Manhattan distance <= ZIPLINE_RANGE)
+  const paths = new Map();
+  paths.set(baseTile.id, [{ x: baseTile.x, y: baseTile.y, fast: true }]);
+  const queue = [baseTile];
+
+  while (queue.length > 0) {
+    const curr = queue.shift();
+    const currPath = paths.get(curr.id);
+
+    for (const next of hubs) {
+      if (paths.has(next.id)) continue;
+      const dist = Math.abs(curr.x - next.x) + Math.abs(curr.y - next.y);
+      if (dist <= ZIPLINE_RANGE) {
+        paths.set(next.id, [...currPath, { x: next.x, y: next.y, fast: true }]);
+        queue.push(next);
+      }
+    }
+  }
+
+  // Pick reachable hub with shortest total travel cost to minedTile
+  let bestHub = baseTile;
+  let bestPath = paths.get(baseTile.id);
+  let bestScore = Infinity;
+
+  for (const hub of hubs) {
+    const hubPath = paths.get(hub.id);
+    if (!hubPath) continue; // Only zipline-connected hubs get zipline routing
+
+    let zipDist = 0;
+    for (let i = 0; i < hubPath.length - 1; i++) {
+      zipDist += Math.abs(hubPath[i + 1].x - hubPath[i].x) + Math.abs(hubPath[i + 1].y - hubPath[i].y);
+    }
+    const chugDist = Math.abs(minedTile.x - hub.x) + Math.abs(minedTile.y - hub.y);
+    const score = zipDist / ZIPLINE_SPEED_MULT + chugDist;
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestHub = hub;
+      bestPath = hubPath;
+    }
+  }
+
+  const route = [...bestPath, { x: minedTile.x, y: minedTile.y, fast: false }];
+  // Round-trip duration: 2 * (zipDist * (2500 / 3) + chugDist * 2500)
+  const duration = Math.max(3000, Math.round(bestScore * 5000));
+
+  return {
+    destinationId: bestHub.id,
+    route,
+    duration,
+  };
+}
 
 // ---------------------------------------------------------
 // HTTP Server (Serving compiled Vite frontend & assets)
@@ -230,7 +455,6 @@ const server = http.createServer((req, res) => {
 
   let filePath = path.join(DIST_DIR, reqPath);
 
-  // If path doesn't exist, fallback to index.html (SPA routing)
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     filePath = path.join(DIST_DIR, 'index.html');
   }
@@ -246,7 +470,7 @@ const server = http.createServer((req, res) => {
 
   res.writeHead(200, {
     'Content-Type': contentType,
-    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000',
+    'Access-Control-Allow-Origin': '*',
   });
 
   fs.createReadStream(filePath).pipe(res);
@@ -277,7 +501,6 @@ function getBaseLocations() {
 wss.on('connection', (ws) => {
   let currentUser = null;
 
-  // Send full initial state upon connection
   ws.send(JSON.stringify({
     type: 'INIT_STATE',
     state: {
@@ -357,11 +580,14 @@ wss.on('connection', (ws) => {
         case 'BUILD_BASE': {
           const { tileId, username } = msg;
           const player = gameState.players[username];
-          if (player && gameState.tiles[tileId] && !player.baseLocation) {
+          const tile = gameState.tiles[tileId];
+          if (player && tile && tile.y === 0 && !player.baseLocation && !tile.building) {
             player.baseLocation = tileId;
             player.baseLevel = 1;
-            gameState.tiles[tileId].isClaimed = true;
-            gameState.tiles[tileId].claimedBy = username;
+            tile.isClaimed = true;
+            tile.claimedBy = username;
+            tile.isProspected = true;
+            tile.building = { type: 'base', owner: username, level: 1 };
             gameState.tiles = updateVisibility(gameState.tiles, getBaseLocations());
 
             ws.send(JSON.stringify({
@@ -386,14 +612,32 @@ wss.on('connection', (ws) => {
           const { tileId, structure, username } = msg;
           const tile = gameState.tiles[tileId];
           const player = gameState.players[username];
-          if (tile && player && tile.isMined && !tile.structure) {
+          const cost = STRUCTURE_COSTS[structure];
+          if (
+            tile &&
+            player &&
+            cost &&
+            tile.isMined &&
+            !tile.structure &&
+            player.resources.credits >= cost.credits &&
+            (player.inventory.mineral || 0) >= cost.mineral
+          ) {
+            player.resources.credits -= cost.credits;
+            player.inventory.mineral = (player.inventory.mineral || 0) - cost.mineral;
+
             tile.structure = structure;
             tile.isClaimed = true;
             tile.claimedBy = username;
+            tile.building = {
+              type: structure,
+              owner: username,
+              level: 1,
+              ...(structure === 'drone' ? { lastExtractTime: Date.now() } : {}),
+            };
 
             broadcast({
-              type: 'TILE_UPDATED',
-              tile,
+              type: 'STATE_UPDATE',
+              tiles: gameState.tiles,
               players: gameState.players,
             });
             markDirty(true);
@@ -406,10 +650,12 @@ wss.on('connection', (ws) => {
           const tile = gameState.tiles[tileId];
           if (tile && tile.claimedBy === username) {
             tile.structure = null;
+            tile.building = null;
             tile.isClaimed = false;
             tile.claimedBy = undefined;
 
             broadcast({ type: 'TILE_UPDATED', tile });
+            markDirty(true);
           }
           break;
         }
@@ -426,6 +672,19 @@ wss.on('connection', (ws) => {
               tile.claimedBy = undefined;
               tile.assignedCrewIds = [];
             } else {
+              // Enforce active job limit (1 base + 1 per Forward Command Post)
+              const commandPosts = Object.values(gameState.tiles).filter(
+                t => t.structure === 'command' && t.claimedBy === username
+              ).length;
+              const maxActiveJobs = 1 + commandPosts;
+              const currentActiveJobs = Object.values(gameState.tiles).filter(
+                t => t.claimedBy === username && t.id !== tileId && Boolean(t.job)
+              ).length;
+
+              if (currentActiveJobs >= maxActiveJobs) {
+                break;
+              }
+
               tile.job = job;
               tile.isClaimed = true;
               tile.claimedBy = username;
@@ -433,6 +692,7 @@ wss.on('connection', (ws) => {
             }
 
             broadcast({ type: 'TILE_UPDATED', tile });
+            markDirty(true);
           }
           break;
         }
@@ -441,6 +701,7 @@ wss.on('connection', (ws) => {
           const { listing } = msg;
           gameState.marketListings.push(listing);
           broadcast({ type: 'MARKET_UPDATED', listings: gameState.marketListings });
+          markDirty(true);
           break;
         }
 
@@ -448,6 +709,7 @@ wss.on('connection', (ws) => {
           const { listingId } = msg;
           gameState.marketListings = gameState.marketListings.filter(l => l.id !== listingId);
           broadcast({ type: 'MARKET_UPDATED', listings: gameState.marketListings });
+          markDirty(true);
           break;
         }
 
@@ -455,6 +717,7 @@ wss.on('connection', (ws) => {
           const { listingId } = msg;
           gameState.marketListings = gameState.marketListings.filter(l => l.id !== listingId);
           broadcast({ type: 'MARKET_UPDATED', listings: gameState.marketListings });
+          markDirty(true);
           break;
         }
 
@@ -481,6 +744,7 @@ wss.on('connection', (ws) => {
             tiles: gameState.tiles,
             players: gameState.players,
           });
+          markDirty(true);
           break;
         }
 
@@ -494,6 +758,7 @@ wss.on('connection', (ws) => {
             tiles: gameState.tiles,
             players: gameState.players,
           });
+          markDirty(true);
           break;
         }
 
@@ -505,6 +770,7 @@ wss.on('connection', (ws) => {
             if (oldTile) {
               oldTile.isClaimed = false;
               oldTile.claimedBy = undefined;
+              oldTile.building = null;
             }
             player.baseLocation = null;
             player.baseLevel = 0;
@@ -514,6 +780,7 @@ wss.on('connection', (ws) => {
               tiles: gameState.tiles,
               players: gameState.players,
             });
+            markDirty(true);
           }
           break;
         }
@@ -533,6 +800,7 @@ wss.on('connection', (ws) => {
 // ---------------------------------------------------------
 setInterval(() => {
   let stateChanged = false;
+  const now = Date.now();
 
   // 1. Process active jobs (prospecting & mining)
   Object.values(gameState.tiles).forEach(tile => {
@@ -541,7 +809,8 @@ setInterval(() => {
       if (!player) return;
 
       if (tile.job === 'prospect') {
-        const surveySpeed = 25; // 25% progress per tick
+        const scannerMult = hasScannerConeBoost(gameState.tiles, tile) ? 2 : 1;
+        const surveySpeed = 25 * scannerMult;
         tile.prospectProgress = Math.min(100, (tile.prospectProgress || 0) + surveySpeed);
         if (tile.prospectProgress >= 100) {
           tile.isProspected = true;
@@ -560,7 +829,8 @@ setInterval(() => {
           stateChanged = true;
         }
       } else if (tile.job === 'mine') {
-        const digSpeed = 25; // 25 HP per tick
+        const commandMult = hasCommandAuraBoost(gameState.tiles, tile, player.id) ? 1.35 : 1;
+        const digSpeed = 25 * commandMult;
         tile.health = Math.max(0, tile.health - digSpeed);
         tile.miningProgress = 100 - (tile.health / tile.maxHealth) * 100;
 
@@ -582,34 +852,20 @@ setInterval(() => {
           // Unveil adjacent fog of war
           gameState.tiles = updateVisibility(gameState.tiles, getBaseLocations());
 
-          // Spawn transport to closest base or logistics relay
-          if (player.baseLocation && gameState.tiles[player.baseLocation]) {
-            const baseTile = gameState.tiles[player.baseLocation];
-            let destinationId = player.baseLocation;
-            let minDistance = Math.abs(tile.x - baseTile.x) + Math.abs(tile.y - baseTile.y);
-
-            // Check if player has a closer logistics relay
-            Object.values(gameState.tiles).forEach(t => {
-              if (t.structure === 'relay' && t.claimedBy === player.id) {
-                const dist = Math.abs(tile.x - t.x) + Math.abs(tile.y - t.y);
-                if (dist < minDistance) {
-                  minDistance = dist;
-                  destinationId = t.id;
-                }
-              }
-            });
-
-            const duration = Math.max(4000, minDistance * 5000);
+          // Spawn round-trip shuttle along zipline network + off-grid chug
+          const routeInfo = buildShuttleRoute(gameState.tiles, player, tile);
+          if (routeInfo) {
             const task = {
-              id: `trans-${Date.now()}-${Math.random()}`,
+              id: `trans-${now}-${Math.random()}`,
               ownerId: player.id,
               resource: ['iron', 'copper', 'lithium', 'bananium'].includes(tile.type) ? tile.type : 'mineral',
-              amount: 10,
+              amount: tile.yield || 10,
               fromId: tile.id,
-              toId: destinationId,
-              startTime: Date.now(),
-              duration,
-              arrivalTime: Date.now() + duration,
+              toId: routeInfo.destinationId,
+              route: routeInfo.route,
+              startTime: now,
+              duration: routeInfo.duration,
+              arrivalTime: now + routeInfo.duration,
             };
             gameState.transportQueue.push(task);
           }
@@ -620,8 +876,24 @@ setInterval(() => {
     }
   });
 
-  // 2. Process transport arrivals
-  const now = Date.now();
+  // 2. Process Drone Drilling Stations (1 unit/hour passive extraction)
+  Object.values(gameState.tiles).forEach(tile => {
+    if (tile.structure === 'drone' && tile.claimedBy && tile.building) {
+      const player = gameState.players[tile.claimedBy];
+      if (!player) return;
+
+      const lastExtract = tile.building.lastExtractTime || now;
+      if (now - lastExtract >= DRONE_INTERVAL_MS) {
+        const units = Math.floor((now - lastExtract) / DRONE_INTERVAL_MS);
+        const resource = ['iron', 'copper', 'lithium', 'bananium'].includes(tile.type) ? tile.type : 'mineral';
+        player.inventory[resource] = (player.inventory[resource] || 0) + units;
+        tile.building.lastExtractTime = lastExtract + units * DRONE_INTERVAL_MS;
+        stateChanged = true;
+      }
+    }
+  });
+
+  // 3. Process transport arrivals
   const arrived = gameState.transportQueue.filter(t => now >= t.arrivalTime);
   if (arrived.length > 0) {
     gameState.transportQueue = gameState.transportQueue.filter(t => now < t.arrivalTime);

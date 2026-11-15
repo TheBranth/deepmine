@@ -35,7 +35,7 @@ export class StrataManager {
       const posY = -tile.y * 1.15;
       const posZ = 0;
 
-      const isBase = tile.id === baseLocation;
+      const isBase = tile.id === baseLocation || tile.building?.type === 'base';
       const isClaimedOrActive = (tile.isClaimed && Boolean(tile.claimedBy)) || Boolean(tile.job);
       const isMineByMe = Boolean(currentUser && tile.claimedBy === currentUser);
 
@@ -45,8 +45,12 @@ export class StrataManager {
         mat = StrataMaterials.fogOfWar;
       } else if (tile.structure === 'relay') {
         mat = StrataMaterials.relay;
-      } else if (tile.structure === 'service') {
-        mat = StrataMaterials.service;
+      } else if (tile.structure === 'scanner') {
+        mat = StrataMaterials.scanner;
+      } else if (tile.structure === 'command') {
+        mat = StrataMaterials.command;
+      } else if (tile.structure === 'drone') {
+        mat = StrataMaterials.drone;
       } else if (!isBase && !tile.isMined && isClaimedOrActive) {
         if (!isMineByMe) {
           mat = StrataMaterials.claimedOther;
@@ -91,8 +95,16 @@ export class StrataManager {
           propKey = 'relay';
           propScale = 0.85;
           propZOffset = 0.1;
-        } else if (tile.structure === 'service') {
-          propKey = 'service';
+        } else if (tile.structure === 'scanner') {
+          propKey = 'scanner';
+          propScale = 0.75;
+          propZOffset = 0.1;
+        } else if (tile.structure === 'command') {
+          propKey = 'command';
+          propScale = 0.45;
+          propZOffset = 0.05;
+        } else if (tile.structure === 'drone') {
+          propKey = 'drone';
           propScale = 0.75;
           propZOffset = 0.1;
         } else if (tile.isMined && !tile.structure) {
@@ -127,16 +139,12 @@ export class StrataManager {
               child.userData = { tileId: tile.id };
             });
             // Rotate models for natural isometric perspective
-            if (isBase) {
+            if (isBase || propKey === 'command') {
               cloned.rotation.x = Math.PI / 2.2;
-            } else if (propKey === 'relay') {
-              cloned.rotation.x = Math.PI / 2.5;
-            } else if (propKey === 'service') {
+            } else if (propKey === 'relay' || propKey === 'scanner' || propKey === 'drone' || propKey === 'crystals') {
               cloned.rotation.x = Math.PI / 2.5;
             } else if (propKey === 'supports') {
               cloned.rotation.x = Math.PI / 2;
-            } else if (propKey === 'crystals') {
-              cloned.rotation.x = Math.PI / 2.5;
             }
             this.group.add(cloned);
             this.propMeshes.set(tile.id, cloned);

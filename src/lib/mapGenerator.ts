@@ -7,46 +7,66 @@ export const generateMap = (width: number, depth: number = width): Record<string
     for (let x = -radius; x <= radius; x++) {
         for (let y = 0; y <= depth; y++) {
             let type: TileType = 'soil';
-            let health = 100;
+            let yieldAmount = 10;
 
-            // Surface Level (y=0)
             if (y === 0) {
+                // Row 0 is reserved for Command Domes / surface operations
                 type = 'soil';
-                health = 50;
+                yieldAmount = 5;
             } else {
-                // Underground (y > 0)
                 const rand = Math.random();
-
-                // Generation Logic based on depth (y)
-                if (y < 2) {
-                    type = 'soil';
+                if (y === 1) {
+                    // Shallow crust: soil, rock, or occasional iron — never bananium
+                    if (rand > 0.85) type = 'iron';
+                    else if (rand > 0.65) type = 'rock';
+                    else type = 'soil';
+                    yieldAmount = 8 + Math.floor(Math.random() * 5);
                 } else if (y < 5) {
-                    if (rand > 0.8) type = 'rock';
-                } else if (y < 10) {
-                    if (rand > 0.85) type = 'mineral';
-                    else if (rand > 0.6) type = 'rock';
+                    if (rand > 0.88) type = 'copper';
+                    else if (rand > 0.72) type = 'iron';
+                    else if (rand > 0.45) type = 'rock';
+                    else type = 'soil';
+                    yieldAmount = 10 + y * 2 + Math.floor(Math.random() * 6);
+                } else if (y < 9) {
+                    if (rand > 0.90) type = 'lithium';
+                    else if (rand > 0.76) type = 'mineral';
+                    else if (rand > 0.60) type = 'copper';
+                    else if (rand > 0.45) type = 'iron';
+                    else type = 'rock';
+                    yieldAmount = 14 + y * 2 + Math.floor(Math.random() * 8);
+                } else if (y < 14) {
+                    // Mid-deep: rare bananium starts appearing
+                    if (rand > 0.92) type = 'bananium';
+                    else if (rand > 0.78) type = 'lithium';
+                    else if (rand > 0.60) type = 'mineral';
+                    else if (rand > 0.45) type = 'copper';
+                    else type = 'rock';
+                    yieldAmount = 18 + y * 2 + Math.floor(Math.random() * 10);
                 } else {
-                    // Deep underground
-                    if (rand > 0.95) type = 'bananium';
-                    else if (rand > 0.85) type = 'mineral';
-                    else if (rand > 0.5) type = 'rock';
+                    // Deep core: rich bananium, lithium, and mineral veins
+                    if (rand > 0.82) type = 'bananium';
+                    else if (rand > 0.62) type = 'lithium';
+                    else if (rand > 0.40) type = 'mineral';
+                    else type = 'rock';
+                    yieldAmount = 25 + y * 2 + Math.floor(Math.random() * 15);
                 }
             }
 
-            // Adjust health based on type and depth
-            const baseHealth = y === 0 ? 10 : 180 * (y * y); // 180 health / 1.5 speed = 120 ticks = 60s
-
+            const baseHealth = y === 0 ? 50 : 60 + y * 20;
             let typeModifier = 1;
             switch (type) {
                 case 'soil': typeModifier = 1; break;
-                case 'rock': typeModifier = 1.5; break;
-                case 'mineral': typeModifier = 2; break;
-                case 'bananium': typeModifier = 3; break;
+                case 'rock': typeModifier = 1.4; break;
+                case 'iron': typeModifier = 1.5; break;
+                case 'copper': typeModifier = 1.6; break;
+                case 'mineral': typeModifier = 1.8; break;
+                case 'lithium': typeModifier = 2.0; break;
+                case 'bananium': typeModifier = 2.5; break;
             }
 
-            health = Math.floor(baseHealth * typeModifier);
-
+            const health = Math.floor(baseHealth * typeModifier);
             const id = `${x},${y}`;
+
             map[id] = {
                 id,
                 x,
@@ -54,15 +74,16 @@ export const generateMap = (width: number, depth: number = width): Record<string
                 type,
                 health,
                 maxHealth: health,
+                yield: yieldAmount,
                 isClaimed: false,
                 claimedBy: undefined,
-
-                isProspected: false,
-                isVisible: y === 0, // Surface is always visible
-                prospectProgress: 0,
+                isProspected: y === 0,
+                isVisible: y === 0,
+                prospectProgress: y === 0 ? 100 : 0,
                 miningProgress: 0,
-
                 isMined: false,
+                structure: null,
+                building: null,
             };
         }
     }

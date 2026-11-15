@@ -4,7 +4,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 export const MODEL_PATHS = {
   base: '/models/space/hangar_roundGlass.glb',
   relay: '/models/space/satelliteDish_detailed.glb',
-  service: '/models/space/machine_generatorLarge.glb',
+  scanner: '/models/space/machine_wireless.glb',
+  command: '/models/space/hangar_smallA.glb',
+  drone: '/models/space/machine_generatorLarge.glb',
   miner: '/models/space/craft_miner.glb',
   rover: '/models/space/rover.glb',
   cargo: '/models/space/craft_cargoA.glb',

@@ -1,7 +1,54 @@
 import React from 'react';
-import type { Tile } from '../types';
+import type { Tile, StructureType } from '../types';
 import { useGame } from '../context/GameContext';
-import { Crosshair, Pickaxe, Shield, Radio, Wrench, X, Lock, Layers, Trash2 } from 'lucide-react';
+import { Crosshair, Pickaxe, Shield, Radio, Cpu, Bot, X, Lock, Layers, Trash2 } from 'lucide-react';
+
+const OUTPOST_SPECS: Array<{
+    type: StructureType;
+    label: string;
+    effect: string;
+    credits: number;
+    mineral: number;
+    icon: React.ComponentType<{ size?: number }>;
+    colorClass: string;
+}> = [
+    {
+        type: 'relay',
+        label: 'Relay Beacon',
+        effect: 'Zipline tube (<=5 cells, 3x shuttle)',
+        credits: 150,
+        mineral: 50,
+        icon: Radio,
+        colorClass: 'bg-blue-600 hover:bg-blue-500 border-b-2 border-blue-800',
+    },
+    {
+        type: 'scanner',
+        label: 'Scanner Array',
+        effect: '2x survey speed in 1-3-5-7 cone below',
+        credits: 250,
+        mineral: 100,
+        icon: Crosshair,
+        colorClass: 'bg-cyan-600 hover:bg-cyan-500 border-b-2 border-cyan-800',
+    },
+    {
+        type: 'command',
+        label: 'Forward Command',
+        effect: '+1 rig order & +35% drill (3 adj. cells)',
+        credits: 300,
+        mineral: 120,
+        icon: Cpu,
+        colorClass: 'bg-emerald-600 hover:bg-emerald-500 border-b-2 border-emerald-800',
+    },
+    {
+        type: 'drone',
+        label: 'Drone Drill',
+        effect: 'Extracts 1 unit/hr passively',
+        credits: 400,
+        mineral: 150,
+        icon: Bot,
+        colorClass: 'bg-amber-600 hover:bg-amber-500 border-b-2 border-amber-800',
+    },
+];
 
 interface ActionMenuProps {
     tile: Tile;
@@ -25,9 +72,14 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
     const { gameState, buildStructure, dismantleStructure } = useGame();
 
     const currentUser = gameState.currentUser;
-    const isLimitReached = React.useMemo(() => {
-        if (!currentUser || !tile) return false;
-        return Object.values(gameState.tiles).some(
+    const { isLimitReached, maxActiveJobs } = React.useMemo(() => {
+        if (!currentUser || !tile) return { isLimitReached: false, maxActiveJobs: 1 };
+        const allTiles = Object.values(gameState.tiles);
+        const commandPosts = allTiles.filter(
+            t => t.structure === 'command' && t.claimedBy === currentUser
+        ).length;
+        const maxJobs = 1 + commandPosts;
+        const activeCount = allTiles.filter(
             t =>
                 t.claimedBy === currentUser &&
                 t.id !== gameState.baseLocation &&
@@ -35,12 +87,11 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                 !t.isMined &&
                 !t.structure &&
                 Boolean(t.job)
-        );
+        ).length;
+        return { isLimitReached: activeCount >= maxJobs, maxActiveJobs: maxJobs };
     }, [gameState.tiles, currentUser, gameState.baseLocation, tile]);
 
     const player = gameState.currentUser ? gameState.players[gameState.currentUser] : null;
-    const canAffordRelay = player && player.resources.credits >= 150 && (player.inventory.mineral || 0) >= 50;
-    const canAffordService = player && player.resources.credits >= 250 && (player.inventory.mineral || 0) >= 100;
 
     if (!tile) return null;
 
@@ -174,7 +225,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                                             </>
                                         ) : isLimitReached ? (
                                             <>
-                                                <Lock size={14} /> Rig Busy (1 Order Max)
+                                                <Lock size={14} /> Rig Busy ({maxActiveJobs} Order Max)
                                             </>
                                         ) : (
                                             <>
@@ -203,7 +254,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                                                 </>
                                             ) : isLimitReached ? (
                                                 <>
-                                                    <Lock size={14} /> Rig Busy (1 Order Max)
+                                                    <Lock size={14} /> Rig Busy ({maxActiveJobs} Order Max)
                                                 </>
                                             ) : (
                                                 <>
@@ -240,46 +291,58 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                                         <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 text-center">
                                             Outpost Construction
                                         </div>
-                                        <button
-                                            onClick={() => {
-                                                buildStructure(tile.id, 'relay');
-                                                onClose();
-                                            }}
-                                            disabled={!canAffordRelay}
-                                            className={`w-full py-2 px-3 rounded text-xs font-bold transition-all flex items-center justify-between ${
-                                                canAffordRelay
-                                                    ? 'bg-blue-600 hover:bg-blue-500 text-white border-b-2 border-blue-800'
-                                                    : 'bg-slate-900 text-slate-500 border border-slate-800 cursor-not-allowed'
-                                            }`}
-                                        >
-                                            <span className="flex items-center gap-1.5">
-                                                <Radio size={14} /> Drop Relay Beacon
-                                            </span>
-                                            <span className="font-mono text-[10px] opacity-80">150 CR · 50 MIN</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                buildStructure(tile.id, 'service');
-                                                onClose();
-                                            }}
-                                            disabled={!canAffordService}
-                                            className={`w-full py-2 px-3 rounded text-xs font-bold transition-all flex items-center justify-between ${
-                                                canAffordService
-                                                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-b-2 border-indigo-800'
-                                                    : 'bg-slate-900 text-slate-500 border border-slate-800 cursor-not-allowed'
-                                            }`}
-                                        >
-                                            <span className="flex items-center gap-1.5">
-                                                <Wrench size={14} /> Build Repair Bay
-                                            </span>
-                                            <span className="font-mono text-[10px] opacity-80">250 CR · 100 MIN</span>
-                                        </button>
+                                        {OUTPOST_SPECS.map((spec) => {
+                                            const Icon = spec.icon;
+                                            const canAfford =
+                                                Boolean(player) &&
+                                                player!.resources.credits >= spec.credits &&
+                                                (player!.inventory.mineral || 0) >= spec.mineral;
+                                            return (
+                                                <button
+                                                    key={spec.type}
+                                                    onClick={() => {
+                                                        buildStructure(tile.id, spec.type);
+                                                        onClose();
+                                                    }}
+                                                    disabled={!canAfford}
+                                                    className={`w-full py-2 px-3 rounded text-left transition-all ${
+                                                        canAfford
+                                                            ? `${spec.colorClass} text-white`
+                                                            : 'bg-slate-900 text-slate-500 border border-slate-800 cursor-not-allowed'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between text-xs font-bold">
+                                                        <span className="flex items-center gap-1.5">
+                                                            <Icon size={13} /> {spec.label}
+                                                        </span>
+                                                        <span className="font-mono text-[10px] opacity-85">
+                                                            {spec.credits} CR · {spec.mineral} MIN
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-[10px] opacity-80 mt-0.5 font-mono">
+                                                        {spec.effect}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </>
                                 ) : (
                                     <div className="bg-slate-950/70 p-3 rounded border border-slate-800 space-y-2 text-center">
-                                        <div className="text-cyan-300 font-mono text-xs font-bold uppercase tracking-wider">
-                                            {tile.structure === 'relay' ? 'Logistics Relay Online' : 'Service Bay Online'}
-                                        </div>
+                                        {(() => {
+                                            const activeSpec = OUTPOST_SPECS.find(s => s.type === tile.structure);
+                                            return (
+                                                <>
+                                                    <div className="text-cyan-300 font-mono text-xs font-bold uppercase tracking-wider">
+                                                        {activeSpec ? `${activeSpec.label} Online` : `${tile.structure} Online`}
+                                                    </div>
+                                                    {activeSpec && (
+                                                        <div className="text-[10px] font-mono text-slate-400">
+                                                            {activeSpec.effect}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                         <button
                                             onClick={() => {
                                                 dismantleStructure(tile.id);

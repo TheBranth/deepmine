@@ -62,12 +62,26 @@ export const StrataMaterials: Record<string, THREE.Material> = {
     emissive: 0x1d4ed8,
     emissiveIntensity: 0.5,
   }),
-  service: new THREE.MeshStandardMaterial({
-    color: 0x4f46e5,
-    metalness: 0.8,
+  scanner: new THREE.MeshStandardMaterial({
+    color: 0x06b6d4,
+    metalness: 0.7,
     roughness: 0.2,
-    emissive: 0x4338ca,
-    emissiveIntensity: 0.5,
+    emissive: 0x0891b2,
+    emissiveIntensity: 0.55,
+  }),
+  command: new THREE.MeshStandardMaterial({
+    color: 0x10b981,
+    metalness: 0.7,
+    roughness: 0.25,
+    emissive: 0x059669,
+    emissiveIntensity: 0.45,
+  }),
+  drone: new THREE.MeshStandardMaterial({
+    color: 0xf59e0b,
+    metalness: 0.8,
+    roughness: 0.3,
+    emissive: 0xd97706,
+    emissiveIntensity: 0.45,
   }),
   selectedHighlight: new THREE.MeshBasicMaterial({
     color: 0x38bdf8,

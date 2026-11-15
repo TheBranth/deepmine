@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { GameState, Player, Tile, TransportTask, ResourceType, CrewMember, MarketListing, CrewType } from '../types';
+import type { GameState, Player, Tile, TransportTask, ResourceType, CrewMember, MarketListing, CrewType, StructureType } from '../types';
 import { generateMap } from '../lib/mapGenerator';
 import { updateVisibility } from '../lib/visibilityLogic';
 import { RESEARCH_TREE } from '../data/researchTree';
@@ -14,7 +14,7 @@ interface GameContextType {
     logout: () => void;
     resetWorld: () => void;
     buildBase: (tileId: string) => void;
-    buildStructure: (tileId: string, structure: 'relay' | 'service') => void;
+    buildStructure: (tileId: string, structure: StructureType) => void;
     dismantleStructure: (tileId: string) => void;
     unlockTech: (techId: string, cost: { minerals: number, bananium: number }) => void;
     getResearchBonus: (type: string) => number;
@@ -283,7 +283,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     };
 
-    const buildStructure = (tileId: string, structure: 'relay' | 'service') => {
+    const buildStructure = (tileId: string, structure: StructureType) => {
         if (gameState.currentUser) {
             socketClient.send({ type: 'BUILD_STRUCTURE', tileId, structure, username: gameState.currentUser });
         }
@@ -291,9 +291,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const player = prev.players[prev.currentUser!];
             if (!player) return prev;
 
-            const cost = structure === 'relay'
-                ? { credits: 150, mineral: 50 }
-                : { credits: 250, mineral: 100 };
+            const costs: Record<StructureType, { credits: number; mineral: number }> = {
+                relay: { credits: 150, mineral: 50 },
+                scanner: { credits: 250, mineral: 100 },
+                command: { credits: 300, mineral: 120 },
+                drone: { credits: 400, mineral: 150 },
+            };
+            const cost = costs[structure];
 
             if (player.resources.credits >= cost.credits && (player.inventory.mineral || 0) >= cost.mineral) {
                 // Deduct cost
@@ -311,7 +315,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     ...tile,
                     structure,
                     isClaimed: true,
-                    claimedBy: prev.currentUser!
+                    claimedBy: prev.currentUser!,
+                    building: {
+                        type: structure,
+                        owner: prev.currentUser!,
+                        level: 1,
+                        ...(structure === 'drone' ? { lastExtractTime: Date.now() } : {}),
+                    },
                 };
 
                 return {
@@ -640,20 +650,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const currentUser = prev.currentUser;
             if (!currentUser) return prev;
 
-            // Enforce Single Tile Limit
-            // If we are setting a NEW job (starting interaction), check if we already have an active tile
+            // Enforce active job limit (1 base + 1 per Forward Command Post)
             if (job) {
-                const activeTile = Object.values(prev.tiles).find(t =>
+                const commandPosts = Object.values(prev.tiles).filter(
+                    t => t.structure === 'command' && t.claimedBy === currentUser
+                ).length;
+                const maxActiveJobs = 1 + commandPosts;
+                const activeJobsCount = Object.values(prev.tiles).filter(t =>
                     t.claimedBy === currentUser &&
                     t.id !== prev.baseLocation &&
                     t.id !== tileId &&
                     !t.isMined &&
                     !t.structure &&
                     Boolean(t.job)
-                );
+                ).length;
 
-                if (activeTile) {
-                    // console.log("Limit reached: Cannot claim more than one tile.");
+                if (activeJobsCount >= maxActiveJobs) {
                     return prev;
                 }
             }
