@@ -1,13 +1,38 @@
 import React from 'react';
 import { useGame } from '../context/GameContext';
-import { Users, Pickaxe, BookText, Wrench } from 'lucide-react';
-
-
+import { Users, Pickaxe, Compass, Wrench, Radio } from 'lucide-react';
 
 const CREW_TYPES = [
-    { id: 'miner', name: 'Miner', cost: 100, icon: Pickaxe, description: 'Extracts resources efficiently.' },
-    { id: 'engineer', name: 'Engineer', cost: 150, icon: Wrench, description: 'Builds and maintains structures.' },
-    { id: 'scientist', name: 'Scientist', cost: 200, icon: BookText, description: 'Speeds up surveying and research.' },
+    {
+        id: 'miner',
+        name: 'Core Driller',
+        tag: 'HEAVY RIG',
+        cost: 100,
+        icon: Pickaxe,
+        accent: 'amber',
+        bonus: '+50% DRILL',
+        description: 'High-torque laser cutter specialist for dense strata.',
+    },
+    {
+        id: 'engineer',
+        name: 'Field Engineer',
+        tag: 'OUTPOST',
+        cost: 150,
+        icon: Wrench,
+        accent: 'blue',
+        bonus: '+25% RIG',
+        description: 'Maintains relays, repair bays, and sub-surface haulers.',
+    },
+    {
+        id: 'scientist',
+        name: 'Geo-Surveyor',
+        tag: 'RECON',
+        cost: 200,
+        icon: Compass,
+        accent: 'cyan',
+        bonus: '+50% SCAN',
+        description: 'Deep-radar operator for rapid mineral & bananium sweeps.',
+    },
 ];
 
 export const CrewUI: React.FC = () => {
@@ -16,114 +41,160 @@ export const CrewUI: React.FC = () => {
 
     if (!player) return null;
 
-    return (
-        <div className="w-full h-full bg-slate-950 text-slate-100 p-8 overflow-auto relative">
-            {/* Background decoration */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-20 -left-20 w-96 h-96 bg-blue-900/20 rounded-full blur-3xl"></div>
-                <div className="absolute top-40 right-0 w-72 h-72 bg-purple-900/20 rounded-full blur-3xl"></div>
-            </div>
+    const workingCount = player.crew.filter(c => c.state === 'working').length;
 
-            <div className="relative max-w-6xl mx-auto space-y-8">
-                {/* Header Panel */}
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 p-6 flex flex-col md:flex-row justify-between items-center shadow-xl">
-                    <div className="flex items-center gap-4 mb-4 md:mb-0">
-                        <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                            <Users className="text-blue-400" size={32} />
+    return (
+        <div className="w-full h-full rig-grid-bg text-slate-100 p-4 sm:p-8 overflow-auto">
+            <div className="max-w-6xl mx-auto space-y-6">
+                {/* Command Header */}
+                <div className="bg-[#0b101a] border border-amber-500/30 rounded-lg p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-xl">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-amber-500/10 rounded border border-amber-500/30 text-amber-400">
+                            <Users size={28} />
                         </div>
                         <div>
-                            <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-                                Crew Management
+                            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-400/80">
+                                // Drop-Pod Personnel
+                            </div>
+                            <h2 className="text-2xl font-extrabold tracking-wide text-slate-100 uppercase">
+                                Rig Crew Bay
                             </h2>
-                            <p className="text-slate-400 text-sm">Recruit and manage your mining operation specialists.</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 bg-slate-950/50 px-6 py-3 rounded-xl border border-slate-800">
-                        <span className="text-slate-400 text-sm uppercase tracking-wider">Available Credits</span>
-                        <span className="text-2xl font-mono text-yellow-400 font-bold">{player.resources.credits}</span>
+
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <div className="flex-1 md:flex-initial bg-slate-950 px-4 py-2 rounded border border-slate-800">
+                            <div className="text-[10px] font-mono text-slate-500 uppercase">Active On-Site</div>
+                            <div className="text-lg font-mono font-bold text-cyan-400">
+                                {workingCount} / {player.crew.length}
+                            </div>
+                        </div>
+                        <div className="flex-1 md:flex-initial bg-slate-950 px-4 py-2 rounded border border-amber-500/30">
+                            <div className="text-[10px] font-mono text-slate-500 uppercase">Rig Budget</div>
+                            <div className="text-lg font-mono text-amber-400 font-bold">
+                                {player.resources.credits} CR
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Hiring Section - Takes up 7 columns */}
-                    <div className="lg:col-span-7 space-y-6">
-                        <h3 className="text-xl font-bold text-slate-300 flex items-center gap-2">
-                            <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-                            Recruitment Center
-                        </h3>
-                        <div className="grid gap-4">
-                            {CREW_TYPES.map((type) => (
-                                <div
-                                    key={type.id}
-                                    className="group relative bg-slate-900/50 hover:bg-slate-800/80 border border-slate-700 hover:border-blue-500/50 rounded-xl p-5 transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-blue-900/20"
-                                >
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-4 bg-slate-800 rounded-xl group-hover:bg-blue-900/30 group-hover:scale-110 transition-all duration-300">
-                                                <type.icon size={28} className="text-slate-400 group-hover:text-blue-400" />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Drop-Pod Dispatch (Hiring) */}
+                    <div className="lg:col-span-7 space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <h3 className="text-xs font-mono font-bold uppercase tracking-[0.18em] text-amber-400">
+                                Orbital Drop-Pod Dispatch
+                            </h3>
+                            <span className="text-[10px] font-mono text-slate-500">INSTANT DEPLOYMENT</span>
+                        </div>
+
+                        <div className="grid gap-3">
+                            {CREW_TYPES.map((type) => {
+                                const canAfford = player.resources.credits >= type.cost;
+                                const Icon = type.icon;
+                                return (
+                                    <div
+                                        key={type.id}
+                                        className="bg-[#0b101a] hover:bg-[#0f1624] border border-slate-800 hover:border-amber-500/40 rounded-lg p-4 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                                    >
+                                        <div className="flex items-start sm:items-center gap-4">
+                                            <div className="p-3 bg-slate-950 rounded border border-slate-800 text-amber-400">
+                                                <Icon size={24} />
                                             </div>
                                             <div>
-                                                <h4 className="font-bold text-lg text-white group-hover:text-blue-300 transition-colors">{type.name}</h4>
-                                                <p className="text-sm text-slate-400 mt-1">{type.description}</p>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h4 className="font-bold text-base text-slate-100">{type.name}</h4>
+                                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300">
+                                                        {type.tag}
+                                                    </span>
+                                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-300">
+                                                        {type.bonus}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-slate-400 mt-1">{type.description}</p>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-end gap-3">
-                                            <span className="text-yellow-400 font-mono font-bold">{type.cost} cr</span>
+
+                                        <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0">
+                                            <span className="text-amber-400 font-mono font-bold text-sm">{type.cost} CR</span>
                                             <button
                                                 onClick={() => hireCrew(type.id, type.cost)}
-                                                disabled={player.resources.credits < type.cost}
-                                                className={`px-5 py-2 rounded-lg font-bold text-sm transition-all shadow-lg ${player.resources.credits >= type.cost
-                                                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30 hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0'
-                                                        : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                                                    }`}
+                                                disabled={!canAfford}
+                                                className={`px-4 py-2 rounded font-mono font-bold text-xs uppercase tracking-wider transition-all ${
+                                                    canAfford
+                                                        ? 'bg-amber-500 hover:bg-amber-400 active:translate-y-0.5 text-slate-950 border-b-2 border-amber-700'
+                                                        : 'bg-slate-900 text-slate-600 cursor-not-allowed border border-slate-800'
+                                                }`}
                                             >
-                                                Hire Unit
+                                                Drop Unit
                                             </button>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 
-                    {/* Roster Section - Takes up 5 columns */}
-                    <div className="lg:col-span-5 space-y-6">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-slate-300 flex items-center gap-2">
-                                <span className="w-1 h-6 bg-green-500 rounded-full"></span>
-                                Active Roster
+                    {/* Active Rig Units */}
+                    <div className="lg:col-span-5 space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <h3 className="text-xs font-mono font-bold uppercase tracking-[0.18em] text-cyan-400">
+                                Deployed Rig Units
                             </h3>
-                            <span className="bg-slate-800 text-slate-400 text-xs font-bold px-2 py-1 rounded-md border border-slate-700">
-                                {player.crew.length} UNITS
+                            <span className="text-[11px] font-mono text-slate-400">
+                                {player.crew.length} TOTAL
                             </span>
                         </div>
 
-                        <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-4 h-[500px] overflow-y-auto space-y-3 shadow-inner">
+                        <div className="bg-[#0b101a] rounded-lg border border-slate-800 p-3 h-[460px] overflow-y-auto space-y-2.5">
                             {player.crew.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
-                                    <Users size={48} className="opacity-20" />
-                                    <p className="italic">No crew members assigned.</p>
+                                <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3 font-mono text-xs">
+                                    <Users size={36} className="opacity-20" />
+                                    <p>NO UNITS ON RIG</p>
                                 </div>
                             ) : (
-                                player.crew.map((member) => (
-                                    <div key={member.id} className="bg-slate-800/80 p-3 rounded-lg border border-slate-700/50 flex justify-between items-center hover:bg-slate-800 transition-colors group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-300 border border-slate-600">
-                                                {member.type.charAt(0).toUpperCase()}
+                                player.crew.map((member) => {
+                                    const isWorking = member.state === 'working';
+                                    return (
+                                        <div
+                                            key={member.id}
+                                            className="bg-slate-950/90 p-3 rounded border border-slate-800/90 flex justify-between items-center"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className={`w-2 h-8 rounded-full ${
+                                                        isWorking ? 'bg-cyan-400 animate-pulse' : 'bg-slate-700'
+                                                    }`}
+                                                />
+                                                <div>
+                                                    <div className="font-bold text-slate-100 text-sm">{member.name}</div>
+                                                    <div className="text-[10px] font-mono text-slate-400 uppercase flex items-center gap-2">
+                                                        <span>{member.type}</span>
+                                                        <span className="text-slate-600">·</span>
+                                                        <span>DIG x{member.stats?.digSpeed ?? 1}</span>
+                                                        <span className="text-slate-600">·</span>
+                                                        <span>SCAN x{member.stats?.prospectiveSpeed ?? 1}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <div className="font-bold text-slate-200 text-sm group-hover:text-blue-300 transition-colors">{member.name}</div>
-                                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{member.type}</div>
+
+                                            <div
+                                                className={`text-[10px] font-mono font-bold px-2 py-1 rounded border flex items-center gap-1 ${
+                                                    isWorking
+                                                        ? 'bg-cyan-950/60 text-cyan-300 border-cyan-500/40'
+                                                        : 'bg-slate-900 text-slate-400 border-slate-700'
+                                                }`}
+                                            >
+                                                {isWorking && <Radio size={10} className="animate-pulse" />}
+                                                {isWorking
+                                                    ? member.currentTileId
+                                                        ? `[${member.currentTileId}]`
+                                                        : 'ON-SITE'
+                                                    : 'STANDBY'}
                                             </div>
                                         </div>
-                                        <div className={`text-[10px] font-bold px-2 py-1 rounded-full border ${member.state === 'working'
-                                                ? 'bg-blue-900/30 text-blue-300 border-blue-800'
-                                                : 'bg-slate-700/50 text-slate-400 border-slate-600'
-                                            }`}>
-                                            {member.state.toUpperCase()}
-                                        </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>

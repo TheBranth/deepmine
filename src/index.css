@@ -29,3 +29,21 @@ h1 {
 button {
   cursor: pointer;
 }
+
+.rig-grid-bg {
+  background-color: #070b12;
+  background-image:
+    linear-gradient(to right, rgba(245, 158, 11, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(245, 158, 11, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.hazard-stripe {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(245, 158, 11, 0.14),
+    rgba(245, 158, 11, 0.14) 8px,
+    rgba(15, 23, 42, 0.4) 8px,
+    rgba(15, 23, 42, 0.4) 16px
+  );
+}

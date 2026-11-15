@@ -1,7 +1,7 @@
 import React from 'react';
 import { useGame } from '../context/GameContext';
 import { RESEARCH_TREE, type ResearchNode } from '../data/researchTree';
-import { Lock, Check, FlaskConical } from 'lucide-react';
+import { Lock, Check, FlaskConical, Cpu } from 'lucide-react';
 
 export const ResearchUI: React.FC = () => {
     const { gameState, unlockTech } = useGame();
@@ -12,7 +12,7 @@ export const ResearchUI: React.FC = () => {
         if (researchedTechs.includes(tech.id)) return 'researched';
         const reqsMet = tech.requirements.every(req => researchedTechs.includes(req));
         if (!reqsMet) return 'locked';
-        return 'available'; // Affordability check handled in UI render
+        return 'available';
     };
 
     const handleUnlock = (tech: ResearchNode) => {
@@ -22,60 +22,89 @@ export const ResearchUI: React.FC = () => {
         }
     };
 
-    // Categorize Techs
     const researched = RESEARCH_TREE.filter(t => getTechStatus(t) === 'researched');
     const available = RESEARCH_TREE.filter(t => getTechStatus(t) === 'available');
     const locked = RESEARCH_TREE.filter(t => getTechStatus(t) === 'locked');
 
     const renderTechCard = (tech: ResearchNode, status: 'researched' | 'available' | 'locked') => {
-        const isAffordable = player && player.inventory.mineral >= tech.cost.minerals && player.inventory.bananium >= tech.cost.bananium;
+        const hasMinerals = (player?.inventory.mineral || 0) >= tech.cost.minerals;
+        const hasBananium = (player?.inventory.bananium || 0) >= tech.cost.bananium;
+        const isAffordable = Boolean(player && hasMinerals && hasBananium);
 
-        let cardStyle = "border-slate-700 bg-slate-800 opacity-50 cursor-not-allowed"; // locked default
+        let cardStyle = 'border-slate-800 bg-[#0b101a]/70 opacity-60 cursor-not-allowed';
         let buttonEvent = undefined;
 
         if (status === 'researched') {
-            cardStyle = "border-green-500 bg-green-900/20";
+            cardStyle = 'border-emerald-500/50 bg-emerald-950/20';
         } else if (status === 'available') {
             if (isAffordable) {
-                cardStyle = "border-green-400 bg-slate-800 hover:bg-slate-700 cursor-pointer shadow-[0_0_15px_rgba(74,222,128,0.2)]";
+                cardStyle =
+                    'border-cyan-400/70 bg-[#0b101a] hover:bg-[#101827] cursor-pointer shadow-[0_0_20px_rgba(34,211,238,0.12)]';
                 buttonEvent = () => handleUnlock(tech);
             } else {
-                cardStyle = "border-slate-500 bg-slate-800 cursor-not-allowed opacity-80";
+                cardStyle = 'border-slate-700 bg-[#0b101a] cursor-not-allowed opacity-85';
             }
         }
 
         return (
             <div
                 key={tech.id}
-                className={`flex flex-col p-4 rounded-xl border-2 transition-all duration-200 relative overflow-hidden ${cardStyle}`}
+                className={`flex flex-col p-4 rounded-lg border transition-all duration-200 relative overflow-hidden ${cardStyle}`}
                 onClick={buttonEvent}
             >
-                {status === 'available' && isAffordable && (
-                    <div className="absolute top-0 right-0 bg-green-500 text-black text-xs font-bold px-2 py-1 rounded-bl">
-                        BUY
+                <div className="flex justify-between items-start gap-2 mb-2">
+                    <div>
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-0.5">
+                            BP // {tech.id.toUpperCase()}
+                        </div>
+                        <h3 className="font-bold text-base text-slate-100">{tech.name}</h3>
                     </div>
-                )}
 
-                <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg text-white">{tech.name}</h3>
-                    {status === 'researched' ? <Check size={20} className="text-green-400" /> : status === 'locked' && <Lock size={16} className="text-slate-500" />}
+                    {status === 'researched' ? (
+                        <span className="p-1 bg-emerald-500/20 border border-emerald-500/40 rounded text-emerald-400">
+                            <Check size={15} />
+                        </span>
+                    ) : status === 'locked' ? (
+                        <span className="p-1 bg-slate-900 border border-slate-800 rounded text-slate-500">
+                            <Lock size={14} />
+                        </span>
+                    ) : isAffordable ? (
+                        <span className="px-2 py-0.5 bg-cyan-400 text-slate-950 font-mono text-[10px] font-bold rounded uppercase">
+                            Fabricate
+                        </span>
+                    ) : null}
                 </div>
 
-                <p className="text-sm text-slate-300 mb-4 flex-grow">{tech.description}</p>
+                <p className="text-xs text-slate-400 mb-4 flex-grow leading-relaxed">{tech.description}</p>
 
-                {status !== 'researched' && (
-                    <div className="mt-auto pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-sm font-mono">
-                        <div className={tech.cost.minerals > 0 ? (player && player.inventory.mineral >= tech.cost.minerals ? 'text-green-300' : 'text-red-400') : 'text-slate-500'}>
+                {status !== 'researched' ? (
+                    <div className="mt-auto pt-3 border-t border-slate-800 grid grid-cols-2 gap-2 text-xs font-mono">
+                        <div
+                            className={`px-2 py-1 rounded bg-slate-950 border border-slate-800/80 ${
+                                tech.cost.minerals > 0
+                                    ? hasMinerals
+                                        ? 'text-purple-300'
+                                        : 'text-red-400'
+                                    : 'text-slate-600'
+                            }`}
+                        >
                             MIN: {tech.cost.minerals}
                         </div>
-                        <div className={tech.cost.bananium > 0 ? (player && player.inventory.bananium >= tech.cost.bananium ? 'text-yellow-300' : 'text-red-400') : 'text-slate-500'}>
+                        <div
+                            className={`px-2 py-1 rounded bg-slate-950 border border-slate-800/80 ${
+                                tech.cost.bananium > 0
+                                    ? hasBananium
+                                        ? 'text-yellow-300'
+                                        : 'text-red-400'
+                                    : 'text-slate-600'
+                            }`}
+                        >
                             BAN: {tech.cost.bananium}
                         </div>
                     </div>
-                )}
-                {status === 'researched' && (
-                    <div className="mt-auto pt-3 border-t border-green-500/30 text-xs text-green-400 font-mono uppercase tracking-wider">
-                        Active
+                ) : (
+                    <div className="mt-auto pt-2.5 border-t border-emerald-500/20 text-[10px] text-emerald-400 font-mono uppercase tracking-widest flex items-center gap-1.5">
+                        <Cpu size={12} /> System Online
                     </div>
                 )}
             </div>
@@ -83,49 +112,51 @@ export const ResearchUI: React.FC = () => {
     };
 
     return (
-        <div className="w-full h-full bg-slate-950 overflow-auto relative">
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-3xl"></div>
-            </div>
-
+        <div className="w-full h-full rig-grid-bg overflow-auto">
             {/* Header */}
-            <div className="sticky top-0 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 p-4 lg:p-6 flex flex-col md:flex-row justify-between items-center z-20 shadow-xl">
-                <div className="flex items-center gap-4 mb-4 md:mb-0">
-                    <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
-                        <FlaskConical className="text-purple-400" size={28} />
+            <div className="sticky top-0 bg-[#0b101a]/95 backdrop-blur-md border-b border-amber-500/25 p-4 lg:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-20">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-cyan-500/10 rounded border border-cyan-500/30 text-cyan-400">
+                        <FlaskConical size={24} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-white tracking-tight">Research Lab</h1>
-                        <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Technology Tree</p>
+                        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400/80">
+                            // Engineering Core
+                        </div>
+                        <h1 className="text-xl font-extrabold text-slate-100 uppercase tracking-wide">
+                            R&D Blueprints
+                        </h1>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <div className="flex gap-4 text-sm font-mono bg-slate-950/80 px-4 py-2 rounded-lg border border-slate-800 shadow-inner">
-                        <span className="text-slate-400">Min: <strong className="text-white ml-1">{player?.inventory.mineral || 0}</strong></span>
-                        <div className="w-px h-4 bg-slate-800"></div>
-                        <span className="text-slate-400">Ban: <strong className="text-yellow-400 ml-1">{player?.inventory.bananium || 0}</strong></span>
-                    </div>
+                <div className="flex items-center gap-3 text-xs font-mono bg-slate-950 px-4 py-2 rounded border border-slate-800">
+                    <span className="text-slate-400">
+                        MIN: <strong className="text-purple-300 ml-1">{player?.inventory.mineral || 0}</strong>
+                    </span>
+                    <div className="w-px h-4 bg-slate-800" />
+                    <span className="text-slate-400">
+                        BAN: <strong className="text-yellow-300 ml-1">{player?.inventory.bananium || 0}</strong>
+                    </span>
                 </div>
             </div>
 
-            <div className="p-4 lg:p-8 max-w-[1600px] mx-auto space-y-16 pb-20">
-
+            <div className="p-4 lg:p-8 max-w-[1600px] mx-auto space-y-12 pb-20">
                 {/* Available Section */}
-                <section className="relative">
-                    <div className="flex items-center gap-4 mb-8">
-                        <div className="w-12 h-1 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
-                        <h2 className="text-2xl font-bold text-white">Available Research</h2>
-                        <span className="text-sm font-mono text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{available.length} PROJECTS</span>
+                <section>
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-5">
+                        <h2 className="text-xs font-mono font-bold uppercase tracking-[0.2em] text-cyan-400">
+                            Available Blueprints
+                        </h2>
+                        <span className="text-[11px] font-mono text-slate-400">{available.length} READY</span>
                     </div>
 
                     {available.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {available.map(t => renderTechCard(t, 'available'))}
                         </div>
                     ) : (
-                        <div className="p-12 bg-slate-900/30 rounded-2xl border border-dashed border-slate-800 text-slate-500 italic text-center">
-                            No research currently available.
+                        <div className="p-10 bg-[#0b101a]/50 rounded-lg border border-dashed border-slate-800 text-slate-500 font-mono text-xs text-center uppercase tracking-wider">
+                            All unlocked blueprints fabricated.
                         </div>
                     )}
                 </section>
@@ -133,12 +164,13 @@ export const ResearchUI: React.FC = () => {
                 {/* Researched Section */}
                 {researched.length > 0 && (
                     <section>
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="w-12 h-1 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
-                            <h2 className="text-2xl font-bold text-slate-200">Completed Projects</h2>
-                            <span className="text-sm font-mono text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{researched.length} DONE</span>
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-5">
+                            <h2 className="text-xs font-mono font-bold uppercase tracking-[0.2em] text-emerald-400">
+                                Active Rig Upgrades
+                            </h2>
+                            <span className="text-[11px] font-mono text-slate-400">{researched.length} ONLINE</span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {researched.map(t => renderTechCard(t, 'researched'))}
                         </div>
                     </section>
@@ -146,16 +178,16 @@ export const ResearchUI: React.FC = () => {
 
                 {/* Locked Section */}
                 <section>
-                    <div className="flex items-center gap-4 mb-8">
-                        <div className="w-12 h-1 bg-slate-700 rounded-full"></div>
-                        <h2 className="text-2xl font-bold text-slate-500">Future Technologies</h2>
-                        <span className="text-sm font-mono text-slate-600 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{locked.length} LOCKED</span>
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-5">
+                        <h2 className="text-xs font-mono font-bold uppercase tracking-[0.2em] text-slate-500">
+                            Classified Schematics
+                        </h2>
+                        <span className="text-[11px] font-mono text-slate-600">{locked.length} LOCKED</span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 grayscale opacity-50 hover:opacity-75 transition-opacity duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {locked.map(t => renderTechCard(t, 'locked'))}
                     </div>
                 </section>
-
             </div>
         </div>
     );

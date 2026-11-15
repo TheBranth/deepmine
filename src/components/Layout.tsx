@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styles from './Layout.module.css';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Compass, Users, FlaskConical, Shield, ArrowRightLeft, Radio, RotateCcw, UserCheck, Lock } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { CrewUI } from './CrewUI';
 import { ResearchUI } from './ResearchUI';
@@ -13,9 +13,22 @@ interface LayoutProps {
     onNavigate?: (path: string) => void;
 }
 
+const NAV_ITEMS = [
+    { id: 'map' as const, label: 'Sector Radar', icon: Compass, accent: 'amber' },
+    { id: 'crew' as const, label: 'Crew Bay', icon: Users, accent: 'cyan' },
+    { id: 'research' as const, label: 'R&D Blueprints', icon: FlaskConical, accent: 'purple' },
+    { id: 'base' as const, label: 'Command Dome', icon: Shield, accent: 'emerald' },
+    { id: 'market' as const, label: 'Orbital Exchange', icon: ArrowRightLeft, accent: 'orange' },
+];
+
 export const Layout: React.FC<LayoutProps> = ({ children, onNavigate }) => {
     const { gameState, currentView, setCurrentView, resetWorld, logout } = useGame();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    const player = gameState.currentUser ? gameState.players[gameState.currentUser] : null;
+    const activeRigJobs = Object.values(gameState.tiles).filter(
+        t => t.claimedBy === gameState.currentUser && Boolean(t.job)
+    ).length;
 
     return (
         <div className={styles.container}>
@@ -28,108 +41,138 @@ export const Layout: React.FC<LayoutProps> = ({ children, onNavigate }) => {
                     >
                         {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
                     </button>
-                    <h1 className={styles.title}>DeepMine</h1>
+                    <div className="flex items-center gap-3">
+                        <h1 className={styles.title}>DeepMine</h1>
+                        <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-[10px] font-mono uppercase tracking-widest text-emerald-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Rig Online
+                        </span>
+                        {activeRigJobs > 0 && (
+                            <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-[10px] font-mono uppercase tracking-widest text-cyan-300">
+                                <Radio size={11} className="animate-pulse" />
+                                1 Active Order
+                            </span>
+                        )}
+                    </div>
                 </div>
-                <div className={styles.stats}>
-                    {gameState.currentUser && gameState.players[gameState.currentUser] && (
+
+                <div className="flex items-center gap-2 sm:gap-3">
+                    {player && (
                         <>
-                            <div className={styles.statItem} title="Credits">
-                                <ResourceIcon type="credits" size={16} />
-                                <span className="font-mono text-yellow-400 font-bold">
-                                    {gameState.players[gameState.currentUser].resources.credits}
-                                </span>
+                            <div
+                                className="flex items-center gap-2 bg-slate-950/90 border border-amber-500/30 px-2.5 py-1 rounded"
+                                title="Credits"
+                            >
+                                <ResourceIcon type="credits" size={15} />
+                                <div className="flex items-baseline gap-1">
+                                    <span className="font-mono text-sm text-amber-400 font-bold">
+                                        {player.resources.credits}
+                                    </span>
+                                    <span className="hidden sm:inline text-[10px] font-mono text-amber-500/70">CR</span>
+                                </div>
                             </div>
-                            <div className={styles.statItem} title="Minerals">
-                                <ResourceIcon type="mineral" size={16} />
-                                <span className="font-mono text-purple-400 font-bold">
-                                    {gameState.players[gameState.currentUser].inventory.mineral || 0}
-                                </span>
+                            <div
+                                className="flex items-center gap-2 bg-slate-950/90 border border-purple-500/30 px-2.5 py-1 rounded"
+                                title="Raw Minerals"
+                            >
+                                <ResourceIcon type="mineral" size={15} />
+                                <div className="flex items-baseline gap-1">
+                                    <span className="font-mono text-sm text-purple-300 font-bold">
+                                        {player.inventory.mineral || 0}
+                                    </span>
+                                    <span className="hidden sm:inline text-[10px] font-mono text-purple-400/70">MIN</span>
+                                </div>
                             </div>
-                            <div className={styles.statItem} title="Bananium">
-                                <ResourceIcon type="bananium" size={16} />
-                                <span className="font-mono text-yellow-200 font-bold">
-                                    {gameState.players[gameState.currentUser].inventory.bananium || 0}
-                                </span>
+                            <div
+                                className="flex items-center gap-2 bg-slate-950/90 border border-yellow-400/30 px-2.5 py-1 rounded"
+                                title="Bananium"
+                            >
+                                <ResourceIcon type="bananium" size={15} />
+                                <div className="flex items-baseline gap-1">
+                                    <span className="font-mono text-sm text-yellow-200 font-bold">
+                                        {player.inventory.bananium || 0}
+                                    </span>
+                                    <span className="hidden sm:inline text-[10px] font-mono text-yellow-300/70">BAN</span>
+                                </div>
                             </div>
                         </>
                     )}
                 </div>
             </header>
+
             <main className={styles.main}>
-                {/* Sidebar / Mobile Menu */}
-                <aside className={`${styles.sidebar} ${isMenuOpen ? styles.sidebarOpen : ''} `}>
-                    <h2 className={styles.sidebarTitle}>Operations</h2>
-                    <nav className={styles.nav}>
+                {/* Sidebar / Command Deck */}
+                <aside className={`${styles.sidebar} ${isMenuOpen ? styles.sidebarOpen : ''}`}>
+                    <div className="flex items-center justify-between px-2 mb-3">
+                        <h2 className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-amber-400/80">
+                            // Command Deck
+                        </h2>
+                        <span className="text-[10px] font-mono text-slate-600">SYS.04</span>
+                    </div>
+
+                    <nav className="flex flex-col gap-1.5">
                         {!gameState.baseLocation ? (
-                            <div className="p-4 text-sm text-yellow-300">
-                                Claim a base tile on the surface to start the operation.
+                            <div className="p-3.5 rounded bg-amber-950/25 border border-amber-500/40 text-xs text-amber-200 space-y-1.5">
+                                <div className="font-mono font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                                    Landing Required
+                                </div>
+                                <p className="text-slate-300 leading-relaxed">
+                                    Select any brown surface sector to deploy your Command Dome.
+                                </p>
                             </div>
                         ) : (
-                            <>
-                                <button
-                                    className={`${styles.navButton} ${currentView === 'map' ? 'bg-slate-700 text-white' : ''}`}
-                                    onClick={() => {
-                                        setCurrentView('map');
-                                        setIsMenuOpen(false);
-                                    }}
-                                >
-                                    Map
-                                </button>
-                                <button
-                                    className={`${styles.navButton} ${currentView === 'crew' ? 'bg-slate-700 text-white' : ''}`}
-                                    onClick={() => {
-                                        setCurrentView('crew');
-                                        setIsMenuOpen(false);
-                                    }}
-                                >
-                                    Crew
-                                </button>
-                                <button
-                                    className={`${styles.navButton} text-blue-300 border-blue-800 hover:bg-blue-900/50 ${currentView === 'research' ? 'bg-blue-900/50' : ''}`}
-                                    onClick={() => {
-                                        setCurrentView('research');
-                                        setIsMenuOpen(false);
-                                    }}
-                                >
-                                    Research
-                                </button>
-                                <button
-                                    className={`${styles.navButton} text-green-300 border-green-800 hover:bg-green-900/50 ${currentView === 'base' ? 'bg-green-900/50' : ''}`}
-                                    onClick={() => {
-                                        setCurrentView('base');
-                                        setIsMenuOpen(false);
-                                    }}
-                                >
-                                    Base Station
-                                </button>
-                                <button
-                                    className={`${styles.navButton} text-yellow-300 border-yellow-800 hover:bg-yellow-900/50 ${currentView === 'market' ? 'bg-yellow-900/50' : ''}`}
-                                    onClick={() => {
-                                        setCurrentView('market');
-                                        setIsMenuOpen(false);
-                                    }}
-                                >
-                                    Market
-                                </button>
-                            </>
+                            NAV_ITEMS.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = currentView === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => {
+                                            setCurrentView(item.id);
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all border-l-2 ${
+                                            isActive
+                                                ? 'bg-amber-500/10 text-amber-300 border-amber-400 shadow-[inset_0_0_12px_rgba(245,158,11,0.08)]'
+                                                : 'border-transparent text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'
+                                        }`}
+                                    >
+                                        <Icon size={16} className={isActive ? 'text-amber-400' : 'text-slate-500'} />
+                                        <span className="tracking-wide">{item.label}</span>
+                                    </button>
+                                );
+                            })
                         )}
                     </nav>
 
-                    <div className="mt-auto p-4 border-t border-slate-700/60 flex flex-col gap-2">
-                        <div className="text-xs text-slate-400">
-                            Captain: <span className="font-semibold text-slate-200">{gameState.currentUser || 'Guest'}</span>
-                        </div>
-                        {gameState.baseLocation && (
-                            <div className="text-xs text-green-400">
-                                Base: <span className="font-mono text-slate-300">{gameState.baseLocation} (Lv {gameState.baseLevel || 1})</span>
+                    <div className="mt-auto pt-4 border-t border-slate-800/90 flex flex-col gap-2">
+                        <div className="bg-slate-950/80 border border-slate-800 rounded p-2.5 space-y-1">
+                            <div className="flex items-center justify-between text-[11px] font-mono">
+                                <span className="text-slate-500">CAPTAIN</span>
+                                <span className="text-slate-100 font-bold truncate max-w-[120px]">
+                                    {gameState.currentUser || 'Guest'}
+                                </span>
                             </div>
-                        )}
-                        <div className="flex gap-2 mt-2">
+                            <div className="flex items-center justify-between text-[11px] font-mono">
+                                <span className="text-slate-500">DOME</span>
+                                {gameState.baseLocation ? (
+                                    <span className="text-emerald-400 font-bold">
+                                        [{gameState.baseLocation}] LV.{gameState.baseLevel || 1}
+                                    </span>
+                                ) : (
+                                    <span className="text-amber-400/80">UNDEPLOYED</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-1.5">
                             <button
                                 onClick={logout}
-                                className="flex-1 py-1 px-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 rounded text-xs transition-colors"
+                                className="flex-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded text-[11px] font-mono transition-colors flex items-center justify-center gap-1"
+                                title="Switch Captain"
                             >
-                                Switch Captain
+                                <UserCheck size={12} /> Switch
                             </button>
                             <button
                                 onClick={() => {
@@ -137,9 +180,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, onNavigate }) => {
                                         resetWorld();
                                     }
                                 }}
-                                className="flex-1 py-1 px-2 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/60 rounded text-xs transition-colors"
+                                className="flex-1 py-1.5 px-2 bg-red-950/30 hover:bg-red-900/50 text-red-300 border border-red-800/50 rounded text-[11px] font-mono transition-colors flex items-center justify-center gap-1"
+                                title="Wipe World"
                             >
-                                Reset World
+                                <RotateCcw size={12} /> Wipe
                             </button>
                         </div>
                         <button
@@ -150,9 +194,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, onNavigate }) => {
                                     window.location.href = '/adminDashboard';
                                 }
                             }}
-                            className="w-full mt-1 py-1 px-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-xs transition-colors flex items-center justify-center gap-1 font-mono"
+                            className="w-full py-1.5 px-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[11px] transition-colors flex items-center justify-center gap-1.5 font-mono"
                         >
-                            🔒 Admin Dashboard
+                            <Lock size={11} /> Admin Terminal
                         </button>
                     </div>
                 </aside>
