@@ -337,6 +337,23 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
+function canPlayerClaimTile(tiles, player, targetTile) {
+  if (!player?.baseLocation) return false;
+  const baseTile = tiles[player.baseLocation];
+  if (!baseTile) return false;
+  if (targetTile.y === 0) return false;
+  if (targetTile.isClaimed && targetTile.claimedBy !== player.id) return false;
+
+  const underBaseTile = tiles[`${baseTile.x},${baseTile.y + 1}`];
+  const hasMinedTile = Object.values(tiles).some(t => t.isMined && t.claimedBy === player.id);
+
+  if (!hasMinedTile && underBaseTile && !underBaseTile.isMined) {
+    return targetTile.id === underBaseTile.id;
+  }
+
+  return true;
+}
+
 // ---------------------------------------------------------
 // Structure Effect & Shuttle Route Helpers
 // ---------------------------------------------------------
@@ -671,7 +688,7 @@ wss.on('connection', (ws) => {
 
               const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
               for (const [dx, dy] of dirs) {
-                const neighbor = gameState.tiles[`${exitTile.x + dx}-${exitTile.y + dy}`];
+                const neighbor = gameState.tiles[`${exitTile.x + dx},${exitTile.y + dy}`];
                 if (neighbor) neighbor.isVisible = true;
               }
               gameState.tiles = updateVisibility(gameState.tiles, getBaseLocations());
@@ -749,6 +766,10 @@ wss.on('connection', (ws) => {
               tile.claimedBy = undefined;
               tile.assignedCrewIds = [];
             } else {
+              if (!canPlayerClaimTile(gameState.tiles, player, tile)) {
+                break;
+              }
+
               // Enforce active job limit (1 base + 1 per Forward Command Post)
               const commandPosts = Object.values(gameState.tiles).filter(
                 t => t.structure === 'command' && t.claimedBy === username

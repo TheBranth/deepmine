@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Tile, StructureType } from '../types';
 import { useGame } from '../context/GameContext';
+import { getClaimRestriction } from '../lib/visibilityLogic';
 import { Crosshair, Pickaxe, Shield, Radio, Cpu, Bot, Orbit, X, Lock, Layers, Trash2 } from 'lucide-react';
 
 const OUTPOST_SPECS: Array<{
@@ -101,6 +102,10 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
     }, [gameState.tiles, currentUser, gameState.baseLocation, tile]);
 
     const player = gameState.currentUser ? gameState.players[gameState.currentUser] : null;
+    const claimRestriction = React.useMemo(
+        () => getClaimRestriction(gameState.tiles, gameState.baseLocation, currentUser, tile),
+        [gameState.tiles, gameState.baseLocation, currentUser, tile]
+    );
 
     if (!tile) return null;
 
@@ -216,14 +221,21 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
 
                         {!isBase && !tile.isMined && !canBuildBase && (
                             <>
+                                {!claimRestriction.allowed && !tile.job && (
+                                    <div className="text-[11px] font-mono text-amber-300 bg-amber-950/30 border border-amber-500/30 px-3 py-2 rounded flex items-center gap-2">
+                                        <Lock size={13} className="shrink-0" />
+                                        <span>{claimRestriction.reason}</span>
+                                    </div>
+                                )}
+
                                 {!tile.isProspected && (
                                     <button
                                         onClick={() => onSetJob(tile.job === 'prospect' ? null : 'prospect')}
-                                        disabled={isLimitReached && tile.job !== 'prospect'}
+                                        disabled={(isLimitReached || !claimRestriction.allowed) && tile.job !== 'prospect'}
                                         className={`w-full py-2.5 px-4 rounded font-bold text-sm transition-all flex items-center justify-center gap-2 ${
                                             tile.job === 'prospect'
                                                 ? 'bg-red-900/70 hover:bg-red-800 text-red-100 border border-red-500/40'
-                                                : isLimitReached
+                                                : isLimitReached || !claimRestriction.allowed
                                                     ? 'bg-slate-900 text-slate-500 border border-slate-800 cursor-not-allowed'
                                                     : 'bg-cyan-500 hover:bg-cyan-400 active:translate-y-0.5 text-slate-950 border-b-2 border-cyan-700'
                                         }`}
@@ -231,6 +243,10 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                                         {tile.job === 'prospect' ? (
                                             <>
                                                 <X size={15} /> Abort Radar Scan
+                                            </>
+                                        ) : !claimRestriction.allowed ? (
+                                            <>
+                                                <Lock size={14} /> Sector Locked
                                             </>
                                         ) : isLimitReached ? (
                                             <>
@@ -248,11 +264,11 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                                     <>
                                         <button
                                             onClick={() => onSetJob(tile.job === 'mine' ? null : 'mine')}
-                                            disabled={isLimitReached && tile.job !== 'mine'}
+                                            disabled={(isLimitReached || !claimRestriction.allowed) && tile.job !== 'mine'}
                                             className={`w-full py-2.5 px-4 rounded font-bold text-sm transition-all flex items-center justify-center gap-2 ${
                                                 tile.job === 'mine'
                                                     ? 'bg-red-900/70 hover:bg-red-800 text-red-100 border border-red-500/40'
-                                                    : isLimitReached
+                                                    : isLimitReached || !claimRestriction.allowed
                                                         ? 'bg-slate-900 text-slate-500 border border-slate-800 cursor-not-allowed'
                                                         : 'bg-amber-500 hover:bg-amber-400 active:translate-y-0.5 text-slate-950 border-b-2 border-amber-700'
                                             }`}
@@ -260,6 +276,10 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                                             {tile.job === 'mine' ? (
                                                 <>
                                                     <X size={15} /> Halt Drill Rig
+                                                </>
+                                            ) : !claimRestriction.allowed ? (
+                                                <>
+                                                    <Lock size={14} /> Sector Locked
                                                 </>
                                             ) : isLimitReached ? (
                                                 <>

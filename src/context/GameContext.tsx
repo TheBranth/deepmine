@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { GameState, Player, Tile, TransportTask, ResourceType, CrewMember, MarketListing, CrewType, StructureType } from '../types';
 import { generateMap } from '../lib/mapGenerator';
-import { updateVisibility } from '../lib/visibilityLogic';
+import { updateVisibility, getClaimRestriction } from '../lib/visibilityLogic';
 import { RESEARCH_TREE } from '../data/researchTree';
 import { socketClient, type ServerMessage } from '../lib/socketClient';
 
@@ -668,8 +668,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const currentUser = prev.currentUser;
             if (!currentUser) return prev;
 
-            // Enforce active job limit (1 base + 1 per Forward Command Post)
+            // Enforce claim eligibility & active job limit (1 base + 1 per Forward Command Post)
             if (job) {
+                const claimCheck = getClaimRestriction(prev.tiles, prev.baseLocation, currentUser, tile);
+                if (!claimCheck.allowed) {
+                    return prev;
+                }
+
                 const commandPosts = Object.values(prev.tiles).filter(
                     t => t.structure === 'command' && t.claimedBy === currentUser
                 ).length;

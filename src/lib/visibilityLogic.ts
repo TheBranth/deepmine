@@ -76,3 +76,36 @@ export const updateVisibility = (tiles: Record<string, Tile>, baseLocation?: str
 
     return newTiles;
 };
+
+export const getClaimRestriction = (
+    tiles: Record<string, Tile>,
+    baseLocation: string | null | undefined,
+    username: string | null | undefined,
+    targetTile: Tile | null | undefined
+): { allowed: boolean; reason?: string } => {
+    if (!targetTile || !username) return { allowed: false, reason: 'Invalid target' };
+    if (!baseLocation || !tiles[baseLocation]) {
+        return { allowed: false, reason: 'Deploy Command Dome on Surface (Row 0) first' };
+    }
+    if (targetTile.y === 0) {
+        return { allowed: false, reason: 'Surface Row 0 is reserved for Command Domes' };
+    }
+    if (targetTile.isClaimed && targetTile.claimedBy !== username) {
+        return { allowed: false, reason: `Claimed by ${targetTile.claimedBy}` };
+    }
+
+    const baseTile = tiles[baseLocation];
+    const underBaseTile = tiles[`${baseTile.x},${baseTile.y + 1}`];
+    const hasMinedTile = Object.values(tiles).some(t => t.isMined && t.claimedBy === username);
+
+    if (!hasMinedTile && underBaseTile && !underBaseTile.isMined) {
+        if (targetTile.id !== underBaseTile.id) {
+            return {
+                allowed: false,
+                reason: `First turn: claim sector [${underBaseTile.x}, ${underBaseTile.y}] under your base first`,
+            };
+        }
+    }
+
+    return { allowed: true };
+};
