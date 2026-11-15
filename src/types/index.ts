@@ -10,13 +10,14 @@ export interface Resources {
 
 export type TileType = 'soil' | 'rock' | 'mineral' | 'iron' | 'copper' | 'lithium' | 'bananium';
 
-export type StructureType = 'relay' | 'scanner' | 'command' | 'drone';
+export type StructureType = 'relay' | 'scanner' | 'command' | 'drone' | 'wormhole';
 
 export interface TileBuilding {
   type: 'base' | StructureType;
   owner: string;
   level: number;
   lastExtractTime?: number;
+  linkedTileId?: string | null;
 }
 
 export interface Tile {

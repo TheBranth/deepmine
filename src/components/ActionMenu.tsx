@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Tile, StructureType } from '../types';
 import { useGame } from '../context/GameContext';
-import { Crosshair, Pickaxe, Shield, Radio, Cpu, Bot, X, Lock, Layers, Trash2 } from 'lucide-react';
+import { Crosshair, Pickaxe, Shield, Radio, Cpu, Bot, Orbit, X, Lock, Layers, Trash2 } from 'lucide-react';
 
 const OUTPOST_SPECS: Array<{
     type: StructureType;
@@ -47,6 +47,15 @@ const OUTPOST_SPECS: Array<{
         mineral: 150,
         icon: Bot,
         colorClass: 'bg-amber-600 hover:bg-amber-500 border-b-2 border-amber-800',
+    },
+    {
+        type: 'wormhole',
+        label: 'Wormhole Gate',
+        effect: 'Warps to deepest explored row +1 (1 max)',
+        credits: 300,
+        mineral: 0,
+        icon: Orbit,
+        colorClass: 'bg-purple-600 hover:bg-purple-500 border-b-2 border-purple-800',
     },
 ];
 
@@ -293,7 +302,13 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                                         </div>
                                         {OUTPOST_SPECS.map((spec) => {
                                             const Icon = spec.icon;
+                                            const hasWormhole =
+                                                spec.type === 'wormhole' &&
+                                                Object.values(gameState.tiles).some(
+                                                    t => t.structure === 'wormhole' && t.claimedBy === gameState.currentUser
+                                                );
                                             const canAfford =
+                                                !hasWormhole &&
                                                 Boolean(player) &&
                                                 player!.resources.credits >= spec.credits &&
                                                 (player!.inventory.mineral || 0) >= spec.mineral;
@@ -316,7 +331,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                                                             <Icon size={13} /> {spec.label}
                                                         </span>
                                                         <span className="font-mono text-[10px] opacity-85">
-                                                            {spec.credits} CR · {spec.mineral} MIN
+                                                            {hasWormhole ? '1 Active Max' : `${spec.credits} CR · ${spec.mineral} MIN`}
                                                         </span>
                                                     </div>
                                                     <div className="text-[10px] opacity-80 mt-0.5 font-mono">

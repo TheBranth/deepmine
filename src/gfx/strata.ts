@@ -51,6 +51,8 @@ export class StrataManager {
         mat = StrataMaterials.command;
       } else if (tile.structure === 'drone') {
         mat = StrataMaterials.drone;
+      } else if (tile.structure === 'wormhole') {
+        mat = StrataMaterials.wormhole;
       } else if (!isBase && !tile.isMined && isClaimedOrActive) {
         if (!isMineByMe) {
           mat = StrataMaterials.claimedOther;
@@ -107,6 +109,10 @@ export class StrataManager {
           propKey = 'drone';
           propScale = 0.75;
           propZOffset = 0.1;
+        } else if (tile.structure === 'wormhole') {
+          propKey = 'wormhole';
+          propScale = 0.72;
+          propZOffset = 0.15;
         } else if (tile.isMined && !tile.structure) {
           // Structural support beams in excavated tunnels
           propKey = 'supports';
@@ -141,7 +147,7 @@ export class StrataManager {
             // Rotate models for natural isometric perspective
             if (isBase || propKey === 'command') {
               cloned.rotation.x = Math.PI / 2.2;
-            } else if (propKey === 'relay' || propKey === 'scanner' || propKey === 'drone' || propKey === 'crystals') {
+            } else if (propKey === 'relay' || propKey === 'scanner' || propKey === 'drone' || propKey === 'wormhole' || propKey === 'crystals') {
               cloned.rotation.x = Math.PI / 2.5;
             } else if (propKey === 'supports') {
               cloned.rotation.x = Math.PI / 2;
@@ -187,10 +193,12 @@ export class StrataManager {
   }
 
   public animate(delta: number) {
-    // Gentle rotation of relay dishes and scanner radar
+    // Gentle rotation of relay dishes, scanner radar, and wormhole rings
     this.propMeshes.forEach((prop) => {
-      if (prop.userData.propKey === 'relay') {
+      if (prop.userData.propKey === 'relay' || prop.userData.propKey === 'scanner') {
         prop.rotation.z += delta * 0.8;
+      } else if (prop.userData.propKey === 'wormhole') {
+        prop.rotation.z -= delta * 1.4;
       }
     });
   }

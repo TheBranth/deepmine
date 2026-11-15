@@ -7,6 +7,7 @@ export const MODEL_PATHS = {
   scanner: '/models/space/machine_wireless.glb',
   command: '/models/space/hangar_smallA.glb',
   drone: '/models/space/machine_generatorLarge.glb',
+  wormhole: '/models/space/pipe_ringHigh.glb',
   miner: '/models/space/craft_miner.glb',
   rover: '/models/space/rover.glb',
   cargo: '/models/space/craft_cargoA.glb',

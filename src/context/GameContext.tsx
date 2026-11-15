@@ -296,8 +296,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 scanner: { credits: 250, mineral: 100 },
                 command: { credits: 300, mineral: 120 },
                 drone: { credits: 400, mineral: 150 },
+                wormhole: { credits: 300, mineral: 0 },
             };
             const cost = costs[structure];
+            if (
+                structure === 'wormhole' &&
+                Object.values(prev.tiles).some(t => t.structure === 'wormhole' && t.claimedBy === prev.currentUser)
+            ) {
+                return prev;
+            }
 
             if (player.resources.credits >= cost.credits && (player.inventory.mineral || 0) >= cost.mineral) {
                 // Deduct cost
@@ -352,19 +359,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const tile = prev.tiles[tileId];
             if (!tile || tile.claimedBy !== prev.currentUser) return prev;
 
-            const updatedTile: Tile = {
+            const updatedTiles = { ...prev.tiles };
+            const linkedId = tile.building?.linkedTileId;
+
+            updatedTiles[tileId] = {
                 ...tile,
                 structure: null,
+                building: null,
                 isClaimed: false,
                 claimedBy: undefined
             };
 
+            if (linkedId && updatedTiles[linkedId]) {
+                updatedTiles[linkedId] = {
+                    ...updatedTiles[linkedId],
+                    structure: null,
+                    building: null,
+                    isClaimed: false,
+                    claimedBy: undefined
+                };
+            }
+
             return {
                 ...prev,
-                tiles: {
-                    ...prev.tiles,
-                    [tileId]: updatedTile
-                }
+                tiles: updatedTiles
             };
         });
     };

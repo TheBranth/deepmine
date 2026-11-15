@@ -22,6 +22,7 @@ const STRUCTURE_COSTS = {
   scanner: { credits: 250, mineral: 100 },
   command: { credits: 300, mineral: 120 },
   drone: { credits: 400, mineral: 150 },
+  wormhole: { credits: 300, mineral: 0 },
 };
 
 // MIME types for static assets
@@ -366,12 +367,12 @@ function buildShuttleRoute(tiles, player, minedTile) {
 
   const hubs = [baseTile];
   Object.values(tiles).forEach(t => {
-    if (t.structure === 'relay' && t.claimedBy === player.id) {
+    if ((t.structure === 'relay' || t.structure === 'wormhole') && t.claimedBy === player.id) {
       hubs.push(t);
     }
   });
 
-  // BFS from baseTile along zipline links (Manhattan distance <= ZIPLINE_RANGE)
+  // BFS from baseTile along zipline links (Manhattan distance <= ZIPLINE_RANGE) or wormhole warp links
   const paths = new Map();
   paths.set(baseTile.id, [{ x: baseTile.x, y: baseTile.y, fast: true }]);
   const queue = [baseTile];
@@ -383,7 +384,8 @@ function buildShuttleRoute(tiles, player, minedTile) {
     for (const next of hubs) {
       if (paths.has(next.id)) continue;
       const dist = Math.abs(curr.x - next.x) + Math.abs(curr.y - next.y);
-      if (dist <= ZIPLINE_RANGE) {
+      const isWormholePair = curr.building?.linkedTileId === next.id;
+      if (dist <= ZIPLINE_RANGE || isWormholePair) {
         paths.set(next.id, [...currPath, { x: next.x, y: next.y, fast: true }]);
         queue.push(next);
       }
@@ -622,6 +624,67 @@ wss.on('connection', (ws) => {
             player.resources.credits >= cost.credits &&
             (player.inventory.mineral || 0) >= cost.mineral
           ) {
+            if (structure === 'wormhole') {
+              const hasWormhole = Object.values(gameState.tiles).some(
+                t => t.structure === 'wormhole' && t.claimedBy === username
+              );
+              if (hasWormhole) break;
+
+              let maxExploredY = 0;
+              Object.values(gameState.tiles).forEach(t => {
+                if ((t.isProspected || t.isMined) && t.y > maxExploredY) {
+                  maxExploredY = t.y;
+                }
+              });
+              const exitY = Math.min(20, maxExploredY + 1);
+              const exitCandidates = Object.values(gameState.tiles)
+                .filter(t => t.y === exitY && !t.structure && !t.building && t.id !== tile.id)
+                .sort((a, b) => Math.abs(a.x - tile.x) - Math.abs(b.x - tile.x));
+              const exitTile = exitCandidates[0];
+              if (!exitTile) break;
+
+              player.resources.credits -= cost.credits;
+              player.inventory.mineral = (player.inventory.mineral || 0) - cost.mineral;
+
+              tile.structure = 'wormhole';
+              tile.isClaimed = true;
+              tile.claimedBy = username;
+              tile.building = {
+                type: 'wormhole',
+                owner: username,
+                level: 1,
+                linkedTileId: exitTile.id,
+              };
+
+              exitTile.structure = 'wormhole';
+              exitTile.isMined = true;
+              exitTile.isProspected = true;
+              exitTile.isVisible = true;
+              exitTile.isClaimed = true;
+              exitTile.claimedBy = username;
+              exitTile.building = {
+                type: 'wormhole',
+                owner: username,
+                level: 1,
+                linkedTileId: tile.id,
+              };
+
+              const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+              for (const [dx, dy] of dirs) {
+                const neighbor = gameState.tiles[`${exitTile.x + dx}-${exitTile.y + dy}`];
+                if (neighbor) neighbor.isVisible = true;
+              }
+              gameState.tiles = updateVisibility(gameState.tiles, getBaseLocations());
+
+              broadcast({
+                type: 'STATE_UPDATE',
+                tiles: gameState.tiles,
+                players: gameState.players,
+              });
+              markDirty(true);
+              break;
+            }
+
             player.resources.credits -= cost.credits;
             player.inventory.mineral = (player.inventory.mineral || 0) - cost.mineral;
 
@@ -649,12 +712,26 @@ wss.on('connection', (ws) => {
           const { tileId, username } = msg;
           const tile = gameState.tiles[tileId];
           if (tile && tile.claimedBy === username) {
+            const linkedId = tile.building?.linkedTileId;
             tile.structure = null;
             tile.building = null;
             tile.isClaimed = false;
             tile.claimedBy = undefined;
 
-            broadcast({ type: 'TILE_UPDATED', tile });
+            if (linkedId && gameState.tiles[linkedId]) {
+              const linked = gameState.tiles[linkedId];
+              linked.structure = null;
+              linked.building = null;
+              linked.isClaimed = false;
+              linked.claimedBy = undefined;
+              broadcast({
+                type: 'STATE_UPDATE',
+                tiles: gameState.tiles,
+                players: gameState.players,
+              });
+            } else {
+              broadcast({ type: 'TILE_UPDATED', tile });
+            }
             markDirty(true);
           }
           break;

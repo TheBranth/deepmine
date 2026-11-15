@@ -10,6 +10,7 @@ export class LogisticsManager {
   private tubeMeshes: THREE.Mesh[] = [];
   private sharedTubeGeo: THREE.CylinderGeometry;
   private tubeMaterial: THREE.MeshStandardMaterial;
+  private wormholeMaterial: THREE.MeshStandardMaterial;
   private cargoGroups: Map<string, THREE.Group> = new Map();
   private sharedCargoGeo: THREE.SphereGeometry;
   private cargoMaterial: THREE.MeshStandardMaterial;
@@ -26,6 +27,15 @@ export class LogisticsManager {
       transparent: true,
       opacity: 0.75,
       roughness: 0.2,
+    });
+
+    this.wormholeMaterial = new THREE.MeshStandardMaterial({
+      color: 0xc084fc,
+      emissive: 0x9333ea,
+      emissiveIntensity: 1.0,
+      transparent: true,
+      opacity: 0.55,
+      roughness: 0.15,
     });
 
     this.sharedCargoGeo = new THREE.SphereGeometry(0.18, 12, 12);
@@ -66,11 +76,30 @@ export class LogisticsManager {
         if (dist <= ZIPLINE_RANGE) {
           this.addZiplineTube(
             new THREE.Vector3(a.x * 1.15, -a.y * 1.15, 0.45),
-            new THREE.Vector3(b.x * 1.15, -b.y * 1.15, 0.45)
+            new THREE.Vector3(b.x * 1.15, -b.y * 1.15, 0.45),
+            this.tubeMaterial
           );
         }
       }
     }
+
+    // 2b. Render Wormhole Warp Tethers between paired wormholes
+    const drawnWormholes = new Set<string>();
+    Object.values(tiles).forEach(tile => {
+      if (tile.structure === 'wormhole' && tile.building?.linkedTileId) {
+        const pairKey = [tile.id, tile.building.linkedTileId].sort().join('|');
+        if (drawnWormholes.has(pairKey)) return;
+        drawnWormholes.add(pairKey);
+        const linked = tiles[tile.building.linkedTileId];
+        if (linked) {
+          this.addZiplineTube(
+            new THREE.Vector3(tile.x * 1.15, -tile.y * 1.15, 0.45),
+            new THREE.Vector3(linked.x * 1.15, -linked.y * 1.15, 0.45),
+            this.wormholeMaterial
+          );
+        }
+      }
+    });
 
     // 3. Render 3D Transport Cargo Craft & Payloads (Round-trip along ziplines + chug)
     const now = Date.now();
@@ -152,12 +181,12 @@ export class LogisticsManager {
     });
   }
 
-  private addZiplineTube(start: THREE.Vector3, end: THREE.Vector3) {
+  private addZiplineTube(start: THREE.Vector3, end: THREE.Vector3, mat: THREE.Material) {
     const dir = new THREE.Vector3().subVectors(end, start);
     const len = dir.length();
     if (len < 0.01) return;
 
-    const tube = new THREE.Mesh(this.sharedTubeGeo, this.tubeMaterial);
+    const tube = new THREE.Mesh(this.sharedTubeGeo, mat);
     tube.position.copy(start).addScaledVector(dir, 0.5);
     tube.scale.set(1, len, 1);
     tube.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
@@ -248,6 +277,7 @@ export class LogisticsManager {
   public cleanup() {
     this.sharedTubeGeo.dispose();
     this.tubeMaterial.dispose();
+    this.wormholeMaterial.dispose();
     this.sharedCargoGeo.dispose();
     this.cargoMaterial.dispose();
     this.tubeMeshes.forEach(m => this.group.remove(m));

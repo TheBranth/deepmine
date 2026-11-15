@@ -83,6 +83,13 @@ export const StrataMaterials: Record<string, THREE.Material> = {
     emissive: 0xd97706,
     emissiveIntensity: 0.45,
   }),
+  wormhole: new THREE.MeshStandardMaterial({
+    color: 0xa855f7,
+    metalness: 0.85,
+    roughness: 0.15,
+    emissive: 0x9333ea,
+    emissiveIntensity: 0.8,
+  }),
   selectedHighlight: new THREE.MeshBasicMaterial({
     color: 0x38bdf8,
     wireframe: true,

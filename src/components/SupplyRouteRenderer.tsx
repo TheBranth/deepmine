@@ -117,6 +117,44 @@ export const SupplyRouteRenderer: React.FC = () => {
         }
     }
 
+    // 1b. Render Wormhole warp tethers between paired wormhole tiles
+    const drawnWormholes = new Set<string>();
+    Object.values(tiles).forEach(t => {
+        const linkedId = t.building?.linkedTileId;
+        if (t.structure === 'wormhole' && linkedId && tiles[linkedId]) {
+            const pairKey = [t.id, linkedId].sort().join('--');
+            if (drawnWormholes.has(pairKey)) return;
+            drawnWormholes.add(pairKey);
+
+            const cA = getCoords(t.id);
+            const cB = getCoords(linkedId);
+            if (cA && cB) {
+                const pathData = `M ${cA.x} ${cA.y} L ${cB.x} ${cB.y}`;
+                relaySupplyLines.push(
+                    <g key={`wormhole-${pairKey}`}>
+                        <path
+                            d={pathData}
+                            fill="none"
+                            stroke="#a855f7"
+                            strokeWidth="3.5"
+                            opacity="0.3"
+                            strokeLinecap="round"
+                        />
+                        <path
+                            d={pathData}
+                            fill="none"
+                            stroke="#c084fc"
+                            strokeWidth="1.75"
+                            strokeDasharray="5 8"
+                            strokeLinecap="round"
+                            opacity="0.85"
+                        />
+                    </g>
+                );
+            }
+        }
+    });
+
     // 2. Render active transport lines (mining -> target)
     const activeRouteLines: React.ReactElement[] = [];
     const cargoPulses: React.ReactElement[] = [];
