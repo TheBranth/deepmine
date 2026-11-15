@@ -96,6 +96,14 @@ export const getClaimRestriction = (
 
     const baseTile = tiles[baseLocation];
     const underBaseTile = tiles[`${baseTile.x},${baseTile.y + 1}`];
+
+    if (targetTile.y === 1 && targetTile.x !== baseTile.x) {
+        return {
+            allowed: false,
+            reason: 'Row 1 is reserved for each captain’s own base shaft',
+        };
+    }
+
     const hasMinedTile = Object.values(tiles).some(t => t.isMined && t.claimedBy === username);
 
     if (!hasMinedTile && underBaseTile && !underBaseTile.isMined) {

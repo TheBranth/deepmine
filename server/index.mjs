@@ -342,6 +342,7 @@ function canPlayerClaimTile(tiles, player, targetTile) {
   const baseTile = tiles[player.baseLocation];
   if (!baseTile) return false;
   if (targetTile.y === 0) return false;
+  if (targetTile.y === 1 && targetTile.x !== baseTile.x) return false;
   if (targetTile.isClaimed && targetTile.claimedBy !== player.id) return false;
 
   const underBaseTile = tiles[`${baseTile.x},${baseTile.y + 1}`];
@@ -653,7 +654,7 @@ wss.on('connection', (ws) => {
                   maxExploredY = t.y;
                 }
               });
-              const exitY = Math.min(20, maxExploredY + 1);
+              const exitY = Math.max(2, Math.min(20, maxExploredY + 1));
               const exitCandidates = Object.values(gameState.tiles)
                 .filter(t => t.y === exitY && !t.structure && !t.building && t.id !== tile.id)
                 .sort((a, b) => Math.abs(a.x - tile.x) - Math.abs(b.x - tile.x));
