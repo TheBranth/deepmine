@@ -236,7 +236,7 @@ export class LogisticsManager {
           const pos = new THREE.Vector3().lerpVectors(seg.a, seg.b, segP);
           const dx = seg.b.x - seg.a.x;
           const dy = seg.b.y - seg.a.y;
-          const headingAngle = Math.atan2(dy, dx) + Math.PI / 2;
+          const headingAngle = Math.atan2(dy, dx) - Math.PI / 2;
           return { pos, headingAngle };
         }
         return this.computeManhattanStep(seg.a, seg.b, segP);
@@ -262,15 +262,15 @@ export class LogisticsManager {
       const segP = threshold > 0 ? progress / threshold : 0;
       return {
         pos: new THREE.Vector3(startPos.x + dx * segP, startPos.y, startPos.z),
-        // Nose at rot.z=0 points -Y; +PI/2 aligns nose with direction of travel
-        headingAngle: Math.atan2(0, dx >= 0 ? 1 : -1) + Math.PI / 2,
+        // Nose at rot.z=0 points +Y; -PI/2 aligns nose with direction of travel
+        headingAngle: Math.atan2(0, dx >= 0 ? 1 : -1) - Math.PI / 2,
       };
     }
 
     const segP = threshold < 1 ? (progress - threshold) / (1 - threshold) : 0;
     return {
       pos: new THREE.Vector3(endPos.x, startPos.y + dy * segP, startPos.z),
-      headingAngle: Math.atan2(dy >= 0 ? 1 : -1, 0) + Math.PI / 2,
+      headingAngle: Math.atan2(dy >= 0 ? 1 : -1, 0) - Math.PI / 2,
     };
   }
 
